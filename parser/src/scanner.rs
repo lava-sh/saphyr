@@ -2262,7 +2262,7 @@ impl<'input, T: Input> Scanner<'input, T> {
 
         loop {
             self.input.lookahead(4);
-            if (self.leading_whitespace && self.input.next_is_document_indicator())
+            if (self.mark.col == 0 && self.input.next_is_document_indicator())
                 || self.input.peek() == '#'
             {
                 // BS4K: If a `#` starts a comment after some separation spaces following content
