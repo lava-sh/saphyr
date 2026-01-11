@@ -1,4 +1,5 @@
 // 6FWR: Block Scalar Keep (|+)
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
 
 #[test]
@@ -16,11 +17,11 @@ fn case_6fwr_keep_space() {
                 assert!(false, "{} reported for valid YAML", err);
                 break;
             }
-            Ok((Event::Scalar(cow, style, size, tag), span)) => {
+            Ok((Event::Scalar(cow, style, size, _tag), span)) => {
                 // "ab\n\n\n"|Literal|0|Span { start: Marker { index: 8, line: 2, col: 1 }, end: Marker { index: 14, line: 5, col: 0 } }
                 println!("{:?}|{:?}|{:?}|{:?}", cow, style, size, span);
             },
-            Ok((event, _)) => {}
+            Ok((_event, _)) => {}
         }
     }
 }

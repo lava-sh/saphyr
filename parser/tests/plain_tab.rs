@@ -1,3 +1,4 @@
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScanError};
 
 fn collect_scalars(input: &str) -> Result<Vec<String>, ScanError> {

@@ -1,3 +1,4 @@
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
 
 /// Test case 4H7K in yaml_test_suite

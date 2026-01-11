@@ -1,3 +1,4 @@
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
 
 /// Comment intercepting the multiline text is invalid YAML (case BS4K)

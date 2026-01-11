@@ -227,7 +227,7 @@ pub struct Parser<'input, T: Input> {
 ///
 /// # Example
 /// ```
-/// # use saphyr_parser::{Event, EventReceiver, Parser};
+/// # use saphyr_parser_bw::{Event, EventReceiver, Parser};
 /// #
 /// /// Sink of events. Collects them into an array.
 /// struct EventSink<'input> {

@@ -7,6 +7,7 @@ use std::{
 use libtest_mimic::{run, Arguments, Failed, Trial};
 
 use saphyr::{LoadableYamlNode, Mapping, Scalar, Yaml};
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{
     Event, Marker, Parser, ScalarStyle, ScanError, Span, SpannedEventReceiver, Tag,
 };

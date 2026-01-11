@@ -1,3 +1,4 @@
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Parser, ScanError};
 
 // ZYU8: Directive variants

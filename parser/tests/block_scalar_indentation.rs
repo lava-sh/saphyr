@@ -1,3 +1,4 @@
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
 
 #[test]
@@ -30,7 +31,7 @@ fn yaml_5llu_block_scalar_wrong_indent_should_fail() {
             Ok((Event::DocumentEnd, _)) => {
                 assert!(false, "Document end before any error, invalid YAML");
             }
-            Err(err) => {
+            Err(_err) => {
                 break; // fine
             }
             _ => {}

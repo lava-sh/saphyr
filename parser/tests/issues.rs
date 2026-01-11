@@ -1,4 +1,5 @@
 use saphyr::Marker;
+use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScalarStyle, ScanError, Span};
 
 /// Run the parser through the string.

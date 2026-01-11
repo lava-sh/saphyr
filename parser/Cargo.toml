@@ -1,14 +1,21 @@
 [package]
-name = "saphyr-parser"
+name = "saphyr-parser-bw"
 readme = "README.md"
-authors = { workspace = true }
+authors = [
+  "Ethiraric <ethiraric@gmail.com>",
+  "David Aguilar <davvid@gmail.com>",
+  "Yuheng Chen <yuhengchen@sensetime.com>",
+  "Bourumir Wyngs <bourumir-wyngs@gmail.com>"
+]
 categories = { workspace = true }
-description = { workspace = true }
-documentation = { workspace = true }
+description = "Saphyr-parser with changes from Bourumir Wyngs to be used in serde-saphyr"
+documentation = "https://docs.rs/saphyr-parser/0.0.6/saphyr_parser/"
 edition = { workspace = true }
 keywords = { workspace = true }
 license = { workspace = true }
-repository = { workspace = true }
+repository = "https://github.com/bourumir-wyngs/saphyr"
+
+# !!!important!!! branch = "dev/saphyr-parser", subdir = "parser". Master branch is just in sync with "https://github.com/saphyr-rs/saphyr"
 rust-version = { workspace = true }
 version = { workspace = true }
 exclude = [
