@@ -1,6 +1,6 @@
 # This crate is a fork of saphyr-parser intended to work with serde-saphyr.
 
-This crate is a fork of saphyr-parser, created to ensure compatibility with serde-saphyr.
+This crate is a fork of [saphyr-parser](https://crates.io/crates/saphyr-parser), for work with [serde-saphyr](https://crates.io/crates/serde-saphyr).
 
 It includes a small set of targeted changes required for full YAML compliance, resolving all yaml-test-suite failures. These changes have been proposed upstream. If they are incorporated, this fork may be deprecated in the future.
 
@@ -9,7 +9,7 @@ It includes a small set of targeted changes required for full YAML compliance, r
 `saphyr-parser-bw` has the same public API as `saphyr-parser`.  
 It differs only in the following, narrowly scoped behaviors, all motivated by YAML compliance and interoperability.
 
-## Test case 4H7K: extra closing bracket in an error
+## Test case 4H7K: extra closing bracket is an error
 A sequence such as:
 
 ```yaml
