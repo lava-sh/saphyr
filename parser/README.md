@@ -71,18 +71,6 @@ heavily influenced by `libyaml` and `yaml-cpp`.
 `saphyr-parser` is a pure Rust YAML 1.2 implementation that benefits from the
 memory safety and other benefits from the Rust language.
 
-## Installing
-Add the following to your Cargo.toml:
-
-```toml
-[dependencies]
-saphyr-parser = "0.0.3"
-```
-or use `cargo add` to get the latest version automatically:
-```sh
-cargo add saphyr-parser
-```
-
 ## TODO how-to
 
 ## Security
