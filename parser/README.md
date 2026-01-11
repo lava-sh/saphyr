@@ -21,14 +21,18 @@ is invalid YAML. This case is now correctly reported as an error.
 ## Test case BS4K: comment intercepts multiline content
 A comment that intercepts multiline content is invalid YAML:
 
-```yaml
-  yaml: |
-    word1  # comment
-    word2
+```
+word1  # comment
+word2
 ```
 
-`saphyr-parser` version `0.0.6` accepted this input as valid and silently discarded the part of the text following the comment.  
-This behavior has been corrected.
+while this is valid, even if can only occur at the top level and not in the map:
+```yaml
+word1
+word2
+```
+
+`saphyr-parser` version `0.0.6` accepted input with comment as valid and silently discarded the part of the text following the comment. This behavior has been corrected.
 
 ## Test case ZYU8: reserved directives must be ignored
 Reserved directives must be ignored when they appear in a document.  
