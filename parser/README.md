@@ -1,3 +1,56 @@
+# This crate is a fork of saphyr-parser intended to work with serde-saphyr.
+
+This crate is a fork of saphyr-parser, created to ensure compatibility with serde-saphyr.
+
+It includes a small set of targeted changes required for full YAML compliance, resolving all yaml-test-suite failures. These changes have been proposed upstream. If they are incorporated, this fork may be deprecated in the future.
+
+# Changes made
+
+`saphyr-parser-bw` has the same public API as `saphyr-parser`.  
+It differs only in the following, narrowly scoped behaviors, all motivated by YAML compliance and interoperability.
+
+## Test case 4H7K: extra closing bracket in an error
+A sequence such as:
+
+```yaml
+[ a, b, c ] ]
+```
+
+is invalid YAML. This case is now correctly reported as an error.
+
+## Test case BS4K: comment intercepts multiline content
+A comment that intercepts multiline content is invalid YAML:
+
+```yaml
+  yaml: |
+    word1  # comment
+    word2
+```
+
+`saphyr-parser` version `0.0.6` accepted this input as valid and silently discarded the part of the text following the comment.  
+This behavior has been corrected.
+
+## Test case ZYU8: reserved directives must be ignored
+Reserved directives must be ignored when they appear in a document.  
+While `saphyr-parser` does not make use of such directives, version $0.0.6$ raised an error instead of ignoring them.  
+This has been fixed to match the YAML specification.
+
+## Insufficiently indented closing bracket accepted as valid
+
+This is the most controversial change, and we fully understand the argument that such documents should be rejected:
+
+```yaml
+key: [ 1, 2, 3,
+4, 5, 6
+] # <-- this closing bracket is not sufficiently indented
+```
+
+However, we received multiple bug reports and user complaints about rejecting this input, likely because many other YAML parsers accept it.  
+After careful consideration, the `serde-saphyr` team decided to support this case for compatibility reasons.
+
+That said, we still strongly recommend placing the closing bracket further to the right to remain fully YAML-compliant.
+
+
 # saphyr-parser
 
 [saphyr-parser](https://github.com/saphyr-rs/saphyr-parser) is a fully compliant YAML 1.2
