@@ -1975,12 +1975,11 @@ impl<'input, T: Input> Scanner<'input, T> {
                 ));
             }
 
-            if (self.mark.col as isize) < self.indent {
-                return Err(ScanError::new_str(
-                    start_mark,
-                    "invalid indentation in quoted scalar",
-                ));
-            }
+            // Do not enforce block indentation inside quoted (flow) scalars.
+            // YAML allows line breaks within quoted scalars, and the following line
+            // may start at a column less than the current block indent. We still
+            // validate tabs-as-indentation below when applicable, but we should
+            // not fail on a smaller column here.
 
             leading_blanks = false;
             self.consume_flow_scalar_non_whitespace_chars(
@@ -2024,6 +2023,25 @@ impl<'input, T: Input> Scanner<'input, T> {
                     }
                 }
                 self.input.lookahead(1);
+            }
+
+            // If we had a line break inside a quoted (flow) scalar, validate indentation
+            // of the continuation line in block context. YAML test-suite (e.g., QB6E)
+            // expects that a quoted scalar split across lines must not continue at or
+            // before the current block indent when in block context; such cases should
+            // be treated as invalid indentation of a multiline quoted scalar.
+            if leading_blanks && !leading_break.is_empty() && self.flow_level == 0 {
+                // After a real (unescaped) line break inside a quoted scalar in block context,
+                // the continuation content line must be indented beyond the current block indent.
+                // However, allow the line to start with the closing quote at any column.
+                let next_ch = self.input.peek();
+                let is_closing_quote = (single && next_ch == '\'') || (!single && next_ch == '"');
+                if !is_closing_quote && (self.mark.col as isize) <= self.indent {
+                    return Err(ScanError::new_str(
+                        self.mark,
+                        "invalid indentation in multiline quoted scalar",
+                    ));
+                }
             }
 
             // Join the whitespaces or fold line breaks.
