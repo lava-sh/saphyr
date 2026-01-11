@@ -16,7 +16,7 @@ fi
 git checkout master
 git fetch ethiraric
 
-git checkout patch/saphyr-parser
+git checkout dev/saphyr-parser
 git rebase master
 
 git merge --squash "${DEV_BRANCH}"
