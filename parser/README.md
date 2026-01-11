@@ -36,7 +36,7 @@ word2
 
 ## Test case ZYU8: reserved directives must be ignored
 Reserved directives must be ignored when they appear in a document.  
-While `saphyr-parser` does not make use of such directives, version $0.0.6$ raised an error instead of ignoring them.  
+While `saphyr-parser` does not make use of such directives, version `0.0.6` raised an error instead of ignoring them.  
 This has been fixed to match the YAML specification.
 
 ## Insufficiently indented closing bracket accepted as valid
