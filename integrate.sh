@@ -20,7 +20,7 @@ git checkout dev/saphyr-parser
 git rebase master
 
 git merge --squash "${DEV_BRANCH}"
-git commit -m $COMMIT_MSG
+git commit -m "$COMMIT_MSG"
 
 git log | grep bw_
 
