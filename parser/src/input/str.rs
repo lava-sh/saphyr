@@ -302,20 +302,35 @@ impl Input for StrInput<'_> {
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
-        let mut new_str = self.buffer;
+        let bytes = self.buffer.as_bytes();
+        let mut byte_pos: usize = 0;
         let mut count = 0;
-
-        // Skip over all non-breaks.
-        while let Some((c, sub_str)) = split_first_char(new_str) {
-            if is_breakz(c) {
-                break;
+        while byte_pos < bytes.len() {
+            let b = bytes[byte_pos];
+            if b < 128 {
+                match b {
+                    0x00 | 0x0A | 0x0D => break,
+                    _ => {
+                        byte_pos += 1;
+                        count += 1;
+                        continue;
+                    }
+                }
+            } else {
+                // Fallback for non-ASCII
+                let mut chars_it = self.buffer.chars();
+                let mut cnt = 0;
+                while let Some(c) = chars_it.next() {
+                    if is_breakz(c) {
+                        break;
+                    }
+                    cnt += 1;
+                }
+                self.buffer = chars_it.as_str();
+                return cnt;
             }
-            new_str = sub_str;
-            count += 1;
         }
-
-        self.buffer = new_str;
-
+        self.buffer = &self.buffer[byte_pos..];
         count
     }
 

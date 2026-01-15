@@ -436,11 +436,11 @@ pub struct Scanner<'input, T> {
     ///
     /// Refer to the documentation of [`SimpleKey`] for a more in-depth explanation of what they
     /// are.
-    simple_keys: Vec<SimpleKey>,
+    simple_keys: smallvec::SmallVec<SimpleKey, 8>,
     /// The current indentation level.
     indent: isize,
     /// List of all block indentation levels we are in (except the current one).
-    indents: Vec<Indent>,
+    indents: smallvec::SmallVec<Indent, 8>,
     /// Level of nesting of flow sequences.
     flow_level: u8,
     /// The number of tokens that have been returned from the scanner.
@@ -470,7 +470,7 @@ pub struct Scanner<'input, T> {
     ///
     /// [`Possible`]: ImplicitMappingState::Possible
     /// [`Inside`]: ImplicitMappingState::Inside
-    implicit_flow_mapping_states: Vec<ImplicitMappingState>,
+    implicit_flow_mapping_states: smallvec::SmallVec<ImplicitMappingState, 8>,
     /// If a plain scalar was terminated by a `#` comment on its line, we set this
     /// to detect an illegal multiline continuation on the following line.
     interrupted_plain_by_comment: Option<Marker>,
@@ -513,27 +513,27 @@ impl<'input, T: Input> Scanner<'input, T> {
         Scanner {
             input,
             mark: Marker::new(0, 1, 0),
-            tokens: VecDeque::new(),
+            tokens: VecDeque::with_capacity(64),
             error: None,
 
             stream_start_produced: false,
             stream_end_produced: false,
             adjacent_value_allowed_at: 0,
             simple_key_allowed: true,
-            simple_keys: Vec::new(),
+            simple_keys: smallvec::SmallVec::<SimpleKey, 8>::new(),
             indent: -1,
-            indents: Vec::new(),
+            indents: smallvec::SmallVec::<Indent, 8>::new(),
             flow_level: 0,
             tokens_parsed: 0,
             token_available: false,
             leading_whitespace: true,
             flow_mapping_started: false,
-            implicit_flow_mapping_states: vec![],
+            implicit_flow_mapping_states: smallvec::SmallVec::<ImplicitMappingState, 8>::new(),
             interrupted_plain_by_comment: None,
 
-            buf_leading_break: String::new(),
-            buf_trailing_breaks: String::new(),
-            buf_whitespaces: String::new(),
+            buf_leading_break: String::with_capacity(128),
+            buf_trailing_breaks: String::with_capacity(128),
+            buf_whitespaces: String::with_capacity(128),
         }
     }
 
