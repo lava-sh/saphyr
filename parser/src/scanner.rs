@@ -549,38 +549,43 @@ impl<'input, T: Input> Scanner<'input, T> {
     /// Consume the next character. It is assumed the next character is a blank.
     #[inline]
     fn skip_blank(&mut self) {
+        let len = self.input.peek().len_utf8();
         self.input.skip();
 
-        self.mark.index += 1;
-        self.mark.col += 1;
+        self.mark.index += len;
+        self.mark.col += len;
     }
 
     /// Consume the next character. It is assumed the next character is not a blank.
     #[inline]
     fn skip_non_blank(&mut self) {
+        let len = self.input.peek().len_utf8();
         self.input.skip();
 
-        self.mark.index += 1;
-        self.mark.col += 1;
+        self.mark.index += len;
+        self.mark.col += len;
         self.leading_whitespace = false;
     }
 
     /// Consume the next characters. It is assumed none of the next characters are blanks.
     #[inline]
     fn skip_n_non_blank(&mut self, count: usize) {
-        self.input.skip_n(count);
-
-        self.mark.index += count;
-        self.mark.col += count;
+        for _ in 0..count {
+            let len = self.input.peek().len_utf8();
+            self.input.skip();
+            self.mark.index += len;
+            self.mark.col += len;
+        }
         self.leading_whitespace = false;
     }
 
     /// Consume the next character. It is assumed the next character is a newline.
     #[inline]
     fn skip_nl(&mut self) {
+        let len = self.input.peek().len_utf8();
         self.input.skip();
 
-        self.mark.index += 1;
+        self.mark.index += len;
         self.mark.col = 0;
         self.mark.line += 1;
         self.leading_whitespace = true;

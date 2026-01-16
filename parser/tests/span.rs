@@ -11,8 +11,9 @@ fn run_parser_and_deref_scalar_spans(input: &str) -> Result<Vec<(String, String)
         if let Event::Scalar(s, ..) = x.0 {
             let start = x.1.start.index();
             let end = x.1.end.index();
-            let input_s = input.chars().skip(start).take(end - start).collect();
-            events.push((s.into(), input_s));
+            let input_s = &input.as_bytes()[start..end];
+            let input_s = core::str::from_utf8(input_s).unwrap();
+            events.push((s.into(), input_s.to_string()));
         }
     }
     Ok(events)
@@ -29,8 +30,9 @@ fn run_parser_and_deref_seq_spans(input: &str) -> Result<Vec<String>, ScanError>
             Event::SequenceEnd => {
                 let start = start_stack.pop().unwrap();
                 let end = x.1.end.index();
-                let input_s = input.chars().skip(start).take(end - start).collect();
-                events.push(input_s);
+                let input_s = &input.as_bytes()[start..end];
+                let input_s = core::str::from_utf8(input_s).unwrap();
+                events.push(input_s.to_string());
             }
             _ => {}
         }
@@ -69,8 +71,8 @@ fn test_plain() {
 #[test]
 fn test_plain_utf8() {
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("a: 你好").unwrap()),
-        [("a", "a"), ("你好", "你好")]
+        deref_pairs(&run_parser_and_deref_scalar_spans("a: \u{4F60}\u{5273}").unwrap()),
+        [("a", "a"), ("\u{4F60}\u{5273}", "\u{4F60}\u{5273}")]
     );
 }
 
@@ -138,14 +140,14 @@ fn test_seq() {
 #[test]
 fn test_literal_utf8() {
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("foo: |\n  你好").unwrap()),
-        [("foo", "foo"), ("你好\n", "你好"),]
+        deref_pairs(&run_parser_and_deref_scalar_spans("foo: |\n  \u{4F60}\u{5273}").unwrap()),
+        [("foo", "foo"), ("\u{4F60}\u{5273}\n", "\u{4F60}\u{5273}"),]
     );
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("foo: |\n  one:你好\n  two:你好").unwrap()),
+        deref_pairs(&run_parser_and_deref_scalar_spans("foo: |\n  one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}").unwrap()),
         [
             ("foo", "foo"),
-            ("one:你好\ntwo:你好\n", "one:你好\n  two:你好"),
+            ("one:\u{4F60}\u{5273}\ntwo:\u{4F60}\u{5273}\n", "one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}"),
         ]
     );
 }
@@ -153,14 +155,14 @@ fn test_literal_utf8() {
 #[test]
 fn test_block_utf8() {
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("foo: >\n  你好").unwrap()),
-        [("foo", "foo"), ("你好\n", "你好")],
+        deref_pairs(&run_parser_and_deref_scalar_spans("foo: >\n  \u{4F60}\u{5273}").unwrap()),
+        [("foo", "foo"), ("\u{4F60}\u{5273}\n", "\u{4F60}\u{5273}")],
     );
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("foo: >\n  one:你好\n  two:你好").unwrap()),
+        deref_pairs(&run_parser_and_deref_scalar_spans("foo: >\n  one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}").unwrap()),
         [
             ("foo", "foo"),
-            ("one:你好 two:你好\n", "one:你好\n  two:你好")
+            ("one:\u{4F60}\u{5273} two:\u{4F60}\u{5273}\n", "one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}")
         ],
     );
 }

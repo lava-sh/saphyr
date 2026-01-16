@@ -302,36 +302,16 @@ impl Input for StrInput<'_> {
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
-        let bytes = self.buffer.as_bytes();
         let mut byte_pos: usize = 0;
-        let mut count = 0;
-        while byte_pos < bytes.len() {
-            let b = bytes[byte_pos];
-            if b < 128 {
-                match b {
-                    0x00 | 0x0A | 0x0D => break,
-                    _ => {
-                        byte_pos += 1;
-                        count += 1;
-                        continue;
-                    }
-                }
-            } else {
-                // Fallback for non-ASCII
-                let mut chars_it = self.buffer.chars();
-                let mut cnt = 0;
-                while let Some(c) = chars_it.next() {
-                    if is_breakz(c) {
-                        break;
-                    }
-                    cnt += 1;
-                }
-                self.buffer = chars_it.as_str();
-                return cnt;
+        let mut chars = self.buffer.chars();
+        while let Some(c) = chars.next() {
+            if is_breakz(c) {
+                break;
             }
+            byte_pos += c.len_utf8();
         }
         self.buffer = &self.buffer[byte_pos..];
-        count
+        byte_pos
     }
 
     fn skip_while_blank(&mut self) -> usize {
@@ -348,59 +328,39 @@ impl Input for StrInput<'_> {
     }
 
     fn fetch_while_is_alpha(&mut self, out: &mut String) -> usize {
-        let mut not_alpha = None;
+        let mut byte_pos: usize = 0;
 
         // Skip while we have alpha characters.
         let mut chars = self.buffer.chars();
-        for c in chars.by_ref() {
+        while let Some(c) = chars.next() {
             if !is_alpha(c) {
-                not_alpha = Some(c);
                 break;
             }
+            out.push(c);
+            byte_pos += c.len_utf8();
         }
 
-        let remaining_string = if let Some(c) = not_alpha {
-            let n_bytes_read = chars.as_str().as_ptr() as usize - self.buffer.as_ptr() as usize;
-            let last_char_bytes = c.len_utf8();
-            &self.buffer[n_bytes_read - last_char_bytes..]
-        } else {
-            chars.as_str()
-        };
+        self.buffer = &self.buffer[byte_pos..];
 
-        let n_bytes_to_append = remaining_string.as_ptr() as usize - self.buffer.as_ptr() as usize;
-        out.reserve(n_bytes_to_append);
-        out.push_str(&self.buffer[..n_bytes_to_append]);
-        self.buffer = remaining_string;
-
-        n_bytes_to_append
+        byte_pos
     }
 
     fn fetch_while_is_yaml_non_space(&mut self, out: &mut String) -> usize {
-        let mut not_non_space = None;
+        let mut byte_pos: usize = 0;
 
         // Skip while we have non-space characters.
         let mut chars = self.buffer.chars();
-        for c in chars.by_ref() {
+        while let Some(c) = chars.next() {
             if !crate::char_traits::is_yaml_non_space(c) {
-                not_non_space = Some(c);
                 break;
             }
+            out.push(c);
+            byte_pos += c.len_utf8();
         }
 
-        let remaining_string = if let Some(c) = not_non_space {
-            let n_bytes_read = chars.as_str().as_ptr() as usize - self.buffer.as_ptr() as usize;
-            let last_char_bytes = c.len_utf8();
-            &self.buffer[n_bytes_read - last_char_bytes..]
-        } else {
-            chars.as_str()
-        };
+        self.buffer = &self.buffer[byte_pos..];
 
-        let n_bytes_to_append = remaining_string.as_ptr() as usize - self.buffer.as_ptr() as usize;
-        out.reserve(n_bytes_to_append);
-        out.push_str(&self.buffer[..n_bytes_to_append]);
-        self.buffer = remaining_string;
-
-        n_bytes_to_append
+        byte_pos
     }
 }
 

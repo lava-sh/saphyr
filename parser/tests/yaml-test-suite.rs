@@ -310,13 +310,13 @@ fn events_differ(actual: &[String], expected: &str) -> Option<String> {
 fn visual_to_raw(yaml: &str) -> String {
     let mut yaml = yaml.to_owned();
     for (pat, replacement) in [
-        ("␣", " "),
-        ("»", "\t"),
-        ("—", ""), // Tab line continuation ——»
-        ("←", "\r"),
-        ("⇔", "\u{FEFF}"),
-        ("↵", ""), // Trailing newline marker
-        ("∎\n", ""),
+        ("\u{2423}", " "),
+        ("\u{BB}", "\t"),
+        ("\u{2014}", ""), // Tab line continuation \u{2014}\u{2014}\u{BB}
+        ("\u{2190}", "\r"),
+        ("\u{21D4}", "\u{FEFF}"),
+        ("\u{21B5}", ""), // Trailing newline marker
+        ("\u{220E}\n", ""),
     ] {
         yaml = yaml.replace(pat, replacement);
     }

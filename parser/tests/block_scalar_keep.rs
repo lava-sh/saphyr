@@ -4,7 +4,7 @@ use saphyr_parser::{Event, Parser};
 
 #[test]
 fn case_6fwr_keep_space() {
-    // Suite expectation: "ab\n\n \n" — the final kept line contains a single space.
+    // Suite expectation: "ab\n\n \n" \u{2014} the final kept line contains a single space.
     let yaml = "--- |+\n ab\n\n \n...\n";
     let mut parser = Parser::new_from_str(yaml);
 

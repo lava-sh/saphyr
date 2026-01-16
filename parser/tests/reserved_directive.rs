@@ -2,7 +2,7 @@ use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Parser, ScanError};
 
 // ZYU8: Directive variants
-// In YAML 1.2, a directive name is any non‑space, non‑line‑break sequence of characters
+// In YAML 1.2, a directive name is any non\u{2011}space, non\u{2011}line\u{2011}break sequence of characters
 // Saphyr expects only alphabetic characters in a directive name, dot . triggers the error.
 #[test]
 fn yaml_zyu8_directive_variant_yaml11_null_document() {

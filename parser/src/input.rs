@@ -384,7 +384,7 @@ pub trait Input {
     fn skip_while_non_breakz(&mut self) -> usize {
         let mut count = 0;
         while !is_breakz(self.look_ch()) {
-            count += 1;
+            count += self.peek().len_utf8();
             self.skip();
         }
         count
@@ -400,12 +400,12 @@ pub trait Input {
     ///
     /// [blanks]: is_blank
     fn skip_while_blank(&mut self) -> usize {
-        let mut n_chars = 0;
+        let mut n_bytes = 0;
         while is_blank(self.look_ch()) {
-            n_chars += 1;
+            n_bytes += self.peek().len_utf8();
             self.skip();
         }
-        n_chars
+        n_bytes
     }
 
     /// Fetch characters from the input while we encounter letters and store them in `out`.
@@ -416,13 +416,14 @@ pub trait Input {
     /// Return the number of characters that were consumed. The number of characters returned can
     /// be used to advance the index and column, since no end-of-line character will be consumed.
     fn fetch_while_is_alpha(&mut self, out: &mut String) -> usize {
-        let mut n_chars = 0;
+        let mut n_bytes = 0;
         while is_alpha(self.look_ch()) {
-            n_chars += 1;
-            out.push(self.peek());
+            let c = self.peek();
+            n_bytes += c.len_utf8();
+            out.push(c);
             self.skip();
         }
-        n_chars
+        n_bytes
     }
 
     /// Fetch characters as long as they satisfy `is_yaml_non_space(c)`.
@@ -433,13 +434,14 @@ pub trait Input {
     /// Return the number of characters that were consumed. The number of characters returned can
     /// be used to advance the index and column, since no end-of-line character will be consumed.
     fn fetch_while_is_yaml_non_space(&mut self, out: &mut String) -> usize {
-        let mut n_chars = 0;
+        let mut n_bytes = 0;
         while crate::char_traits::is_yaml_non_space(self.look_ch()) {
-            n_chars += 1;
-            out.push(self.peek());
+            let c = self.peek();
+            n_bytes += c.len_utf8();
+            out.push(c);
             self.skip();
         }
-        n_chars
+        n_bytes
     }
 }
 

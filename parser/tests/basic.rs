@@ -92,13 +92,13 @@ fn test_empty_doc() {
 #[test]
 fn test_utf() {
     assert_eq!(
-        run_parser("a: 你好").unwrap(),
+        run_parser("a: \u{4F60}\u{5273}").unwrap(),
         [
             Event::StreamStart,
             Event::DocumentStart(false),
             Event::MappingStart(0, None),
             Event::Scalar("a".into(), ScalarStyle::Plain, 0, None),
-            Event::Scalar("你好".into(), ScalarStyle::Plain, 0, None),
+            Event::Scalar("\u{4F60}\u{5273}".into(), ScalarStyle::Plain, 0, None),
             Event::MappingEnd,
             Event::DocumentEnd,
             Event::StreamEnd,
