@@ -54,6 +54,15 @@ After careful consideration, the `serde-saphyr` team decided to support this cas
 
 That said, we still strongly recommend placing the closing bracket further to the right to remain fully YAML-compliant.
 
+## Fix unexpected end of plain scalar while parsing string, cherry picked #87 from saphyr-rs
+The pull request [#87](https://github.com/saphyr-rs/saphyr/pull/87) fixes parsing of the followign YAML:
+
+```yaml
+hello:
+  world: this is a string
+    --- still a string
+```
+The expected string value is `this is a string --- still a string`.
 
 # saphyr-parser
 
@@ -70,8 +79,6 @@ heavily influenced by `libyaml` and `yaml-cpp`.
 
 `saphyr-parser` is a pure Rust YAML 1.2 implementation that benefits from the
 memory safety and other benefits from the Rust language.
-
-## TODO how-to
 
 ## Security
 
