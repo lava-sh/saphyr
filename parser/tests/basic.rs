@@ -66,7 +66,7 @@ key1:a2
     );
     assert_eq!(
         error.to_string(),
-        "mapping values are not allowed in this context at byte 26 line 4 column 4"
+        "mapping values are not allowed in this context at char 26 line 4 column 4"
     );
 }
 

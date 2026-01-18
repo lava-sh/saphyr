@@ -77,7 +77,7 @@ impl Marker {
         Marker { index, line, col }
     }
 
-    /// Return the index (in bytes) of the marker in the source.
+    /// Return the index (in characters) of the marker in the source.
     #[must_use]
     pub fn index(&self) -> usize {
         self.index
@@ -141,7 +141,7 @@ impl Span {
 
 /// An error that occurred while scanning.
 #[derive(Clone, PartialEq, Debug, Eq, Error)]
-#[error("{} at byte {} line {} column {}", .info, .mark.index, .mark.line, .mark.col + 1,)]
+#[error("{} at char {} line {} column {}", .info, .mark.index, .mark.line, .mark.col + 1,)]
 pub struct ScanError {
     /// The position at which the error happened in the source.
     mark: Marker,

@@ -258,7 +258,7 @@ fn test_issue14() {
     );
     assert_eq!(
         error.to_string(),
-        "while parsing a flow mapping, did not find expected ',' or '}' at byte 4 line 2 column 1"
+        "while parsing a flow mapping, did not find expected ',' or '}' at char 4 line 2 column 1"
     );
 }
 
@@ -270,7 +270,7 @@ fn test_issue14_v2() {
         error.info(),
         "while parsing a flow mapping, did not find expected ',' or '}'"
     );
-    assert!(error.to_string().ends_with("at byte 4 line 2 column 1"));
+    assert!(error.to_string().ends_with("at char 4 line 2 column 1"));
 }
 
 #[test]

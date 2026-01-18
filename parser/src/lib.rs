@@ -8,7 +8,7 @@
 //! of `saphyr-parser`. This crate contains only the parser.**
 //!
 //! This is YAML 1.2 parser implementation and low-level parsing API for YAML. It allows users to
-//! fetch a stream of YAML events from a stream of characters/bytes.
+//! fetch a stream of YAML events from a stream of characters.
 //!
 //! # Usage
 //!
