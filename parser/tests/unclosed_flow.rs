@@ -9,7 +9,7 @@ impl EventReceiver<'static> for Collector {
 
 #[test]
 fn test_unclosed_flow_sequence_at_eof() {
-    let input = "[";
+    let input = "  [";
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
@@ -17,12 +17,14 @@ fn test_unclosed_flow_sequence_at_eof() {
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err().info(), "unexpected EOF while parsing a flow sequence");
+    let err = res.unwrap_err();
+    assert_eq!(err.info(), "unclosed bracket '['");
+    assert_eq!(err.marker().index(), 2);
 }
 
 #[test]
 fn test_unclosed_flow_mapping_at_eof() {
-    let input = "{";
+    let input = "   {";
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
@@ -30,12 +32,14 @@ fn test_unclosed_flow_mapping_at_eof() {
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err().info(), "unexpected EOF while parsing a flow mapping");
+    let err = res.unwrap_err();
+    assert_eq!(err.info(), "unclosed bracket '{'");
+    assert_eq!(err.marker().index(), 3);
 }
 
 #[test]
 fn test_unclosed_implicit_flow_mapping_at_eof() {
-    let input = "[ a:";
+    let input = " [ a:";
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
@@ -43,13 +47,14 @@ fn test_unclosed_implicit_flow_mapping_at_eof() {
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
-    let info = res.unwrap_err().info().to_string();
-    assert_eq!(info, "unexpected EOF while parsing a flow mapping");
+    let err = res.unwrap_err();
+    assert_eq!(err.info(), "unclosed bracket '['");
+    assert_eq!(err.marker().index(), 1);
 }
 
 #[test]
 fn test_unclosed_quoted_scalar_at_eof() {
-    let input = "\"abc";
+    let input = "     \"abc";
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
@@ -57,5 +62,7 @@ fn test_unclosed_quoted_scalar_at_eof() {
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err().info(), "while scanning a quoted scalar, found unexpected end of stream");
+    let err = res.unwrap_err();
+    assert_eq!(err.info(), "unclosed quote");
+    assert_eq!(err.marker().index(), 5);
 }

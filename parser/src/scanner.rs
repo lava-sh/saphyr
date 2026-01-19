@@ -474,6 +474,8 @@ pub struct Scanner<'input, T> {
     /// If a plain scalar was terminated by a `#` comment on its line, we set this
     /// to detect an illegal multiline continuation on the following line.
     interrupted_plain_by_comment: Option<Marker>,
+    /// A stack of markers for opening brackets `[` and `{`.
+    flow_markers: smallvec::SmallVec<(Marker, char), 8>,
     buf_leading_break: String,
     buf_trailing_breaks: String,
     buf_whitespaces: String,
@@ -529,6 +531,7 @@ impl<'input, T: Input> Scanner<'input, T> {
             leading_whitespace: true,
             flow_mapping_started: false,
             implicit_flow_mapping_states: smallvec::SmallVec::<ImplicitMappingState, 8>::new(),
+            flow_markers: smallvec::SmallVec::<(Marker, char), 8>::new(),
             interrupted_plain_by_comment: None,
 
             buf_leading_break: String::with_capacity(128),
@@ -972,6 +975,10 @@ impl<'input, T: Input> Scanner<'input, T> {
         if self.mark.col != 0 {
             self.mark.col = 0;
             self.mark.line += 1;
+        }
+
+        if let Some((mark, bracket)) = self.flow_markers.pop() {
+            return Err(ScanError::new(mark, format!("unclosed bracket '{}'", bracket)));
         }
 
         // If the stream ended, we won't have more context. We can stall all the simple keys we
@@ -1439,12 +1446,15 @@ impl<'input, T: Input> Scanner<'input, T> {
         // The indicators '[' and '{' may start a simple key.
         self.save_simple_key();
 
+        let start_mark = self.mark;
+        let indicator = self.input.peek();
+        self.flow_markers.push((start_mark, indicator));
+
         self.roll_one_col_indent();
         self.increase_flow_level()?;
 
         self.allow_simple_key();
 
-        let start_mark = self.mark;
         self.skip_non_blank();
 
         if tok == TokenType::FlowMappingStart {
@@ -1467,6 +1477,7 @@ impl<'input, T: Input> Scanner<'input, T> {
             return Err(ScanError::new_str(self.mark, "misplaced bracket"));
         }
 
+        self.flow_markers.pop();
         self.remove_simple_key()?;
         self.decrease_flow_level();
 
@@ -1593,6 +1604,10 @@ impl<'input, T: Input> Scanner<'input, T> {
     }
 
     fn fetch_document_indicator(&mut self, t: TokenType<'input>) -> ScanResult {
+        if let Some((mark, bracket)) = self.flow_markers.pop() {
+            return Err(ScanError::new(mark, format!("unclosed bracket '{}'", bracket)));
+        }
+
         self.unroll_indent(-1);
         self.remove_simple_key()?;
         self.disallow_simple_key();
@@ -1976,7 +1991,7 @@ impl<'input, T: Input> Scanner<'input, T> {
             if self.input.next_is_z() {
                 return Err(ScanError::new_str(
                     start_mark,
-                    "while scanning a quoted scalar, found unexpected end of stream",
+                    "unclosed quote",
                 ));
             }
 
