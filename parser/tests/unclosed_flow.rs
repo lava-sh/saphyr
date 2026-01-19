@@ -1,4 +1,4 @@
-use saphyr_parser::{Parser, Event, EventReceiver};
+use saphyr_parser_bw::{Parser, Event, EventReceiver};
 
 struct Collector(Vec<Event<'static>>);
 impl EventReceiver<'static> for Collector {
