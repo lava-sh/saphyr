@@ -1,7 +1,5 @@
 use crate::{
-    char_traits::{
-        is_alpha, is_blank, is_blank_or_breakz, is_break, is_breakz, is_digit, is_flow, is_z,
-    },
+    char_traits::{is_blank_or_breakz, is_breakz, is_flow},
     input::{Input, SkipTabs},
 };
 use alloc::string::String;
@@ -147,7 +145,7 @@ impl Input for StrInput<'_> {
         } else {
             // Since all characters we look for are ascii, we can directly use the byte API of str.
             let bytes = self.buffer.as_bytes();
-            (bytes.len() == 3 || is_blank_or_breakz(bytes[3] as char))
+            (bytes.len() == 3 || matches!(bytes[3], b' ' | b'\t' | 0 | b'\n' | b'\r'))
                 && (bytes[0] == b'.' || bytes[0] == b'-')
                 && bytes[0] == bytes[1]
                 && bytes[1] == bytes[2]
@@ -161,7 +159,7 @@ impl Input for StrInput<'_> {
         } else {
             // Since all characters we look for are ascii, we can directly use the byte API of str.
             let bytes = self.buffer.as_bytes();
-            (bytes.len() == 3 || is_blank_or_breakz(bytes[3] as char))
+            (bytes.len() == 3 || matches!(bytes[3], b' ' | b'\t' | 0 | b'\n' | b'\r'))
                 && bytes[0] == b'-'
                 && bytes[1] == b'-'
                 && bytes[2] == b'-'
@@ -175,7 +173,7 @@ impl Input for StrInput<'_> {
         } else {
             // Since all characters we look for are ascii, we can directly use the byte API of str.
             let bytes = self.buffer.as_bytes();
-            (bytes.len() == 3 || is_blank_or_breakz(bytes[3] as char))
+            (bytes.len() == 3 || matches!(bytes[3], b' ' | b'\t' | 0 | b'\n' | b'\r'))
                 && bytes[0] == b'.'
                 && bytes[1] == b'.'
                 && bytes[2] == b'.'
@@ -254,51 +252,50 @@ impl Input for StrInput<'_> {
 
     #[inline]
     fn next_is_blank_or_break(&self) -> bool {
-        !self.buffer.is_empty()
-            && (is_blank(self.buffer.as_bytes()[0] as char)
-                || is_break(self.buffer.as_bytes()[0] as char))
+        !self.buffer.is_empty() && matches!(self.buffer.as_bytes()[0], b' ' | b'\t' | b'\n' | b'\r')
     }
 
     #[inline]
     fn next_is_blank_or_breakz(&self) -> bool {
         self.buffer.is_empty()
-            || (is_blank(self.buffer.as_bytes()[0] as char)
-                || is_breakz(self.buffer.as_bytes()[0] as char))
+            || matches!(self.buffer.as_bytes()[0], b' ' | b'\t' | 0 | b'\n' | b'\r')
     }
 
     #[inline]
     fn next_is_blank(&self) -> bool {
-        !self.buffer.is_empty() && is_blank(self.buffer.as_bytes()[0] as char)
+        !self.buffer.is_empty() && matches!(self.buffer.as_bytes()[0], b' ' | b'\t')
     }
 
     #[inline]
     fn next_is_break(&self) -> bool {
-        !self.buffer.is_empty() && is_break(self.buffer.as_bytes()[0] as char)
+        !self.buffer.is_empty() && matches!(self.buffer.as_bytes()[0], b'\n' | b'\r')
     }
 
     #[inline]
     fn next_is_breakz(&self) -> bool {
-        self.buffer.is_empty() || is_breakz(self.buffer.as_bytes()[0] as char)
+        self.buffer.is_empty() || matches!(self.buffer.as_bytes()[0], 0 | b'\n' | b'\r')
     }
 
     #[inline]
     fn next_is_z(&self) -> bool {
-        self.buffer.is_empty() || is_z(self.buffer.as_bytes()[0] as char)
+        self.buffer.is_empty() || self.buffer.as_bytes()[0] == 0
     }
 
     #[inline]
     fn next_is_flow(&self) -> bool {
-        !self.buffer.is_empty() && is_flow(self.buffer.as_bytes()[0] as char)
+        !self.buffer.is_empty()
+            && matches!(self.buffer.as_bytes()[0], b',' | b'[' | b']' | b'{' | b'}')
     }
 
     #[inline]
     fn next_is_digit(&self) -> bool {
-        !self.buffer.is_empty() && is_digit(self.buffer.as_bytes()[0] as char)
+        !self.buffer.is_empty() && self.buffer.as_bytes()[0].is_ascii_digit()
     }
 
     #[inline]
     fn next_is_alpha(&self) -> bool {
-        !self.buffer.is_empty() && is_alpha(self.buffer.as_bytes()[0] as char)
+        !self.buffer.is_empty()
+            && matches!(self.buffer.as_bytes()[0], b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'-')
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
@@ -334,21 +331,22 @@ impl Input for StrInput<'_> {
     }
 
     fn fetch_while_is_alpha(&mut self, out: &mut String) -> usize {
-        let mut byte_pos: usize = 0;
+        let bytes = self.buffer.as_bytes();
+        let mut i = 0;
 
-        // Skip while we have alpha characters.
-        let mut chars = self.buffer.chars();
-        while let Some(c) = chars.next() {
-            if !is_alpha(c) {
-                break;
+        // Skip while we have alpha characters (all ASCII: 0-9, a-z, A-Z, _, -).
+        while i < bytes.len() {
+            match bytes[i] {
+                b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'-' => i += 1,
+                _ => break,
             }
-            out.push(c);
-            byte_pos += c.len_utf8();
         }
 
-        self.buffer = &self.buffer[byte_pos..];
+        // All matched characters are ASCII, so we can safely slice and convert.
+        out.push_str(&self.buffer[..i]);
+        self.buffer = &self.buffer[i..];
 
-        byte_pos
+        i
     }
 
     fn fetch_while_is_yaml_non_space(&mut self, out: &mut String) -> usize {
