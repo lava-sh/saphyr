@@ -44,7 +44,13 @@ pub fn is_digit(c: char) -> bool {
     c.is_ascii_digit()
 }
 
-/// Check whether the character is a digit, letter, `_` or `-`.
+/// Check whether the character is an ASCII alphanumeric, `_` or `-`.
+///
+/// This is used for scanning tag handles and similar constructs.
+/// Note: This is slightly more permissive than YAML's `ns-word-char` (which excludes `_`).
+/// For strict `ns-word-char` compliance, use [`is_word_char`] instead.
+///
+/// Matches: `[0-9a-zA-Z_-]`
 #[inline]
 #[must_use]
 pub fn is_alpha(c: char) -> bool {
@@ -106,7 +112,11 @@ pub fn is_anchor_char(c: char) -> bool {
     is_yaml_non_space(c) && !is_flow(c) && !is_z(c)
 }
 
-/// Check whether the character is a valid word character.
+/// Check whether the character is a valid YAML word character (`ns-word-char`).
+///
+/// Per YAML 1.2 spec: `ns-word-char ::= ns-dec-digit | ns-ascii-letter | "-"`
+///
+/// Matches: `[0-9a-zA-Z-]`
 #[inline]
 #[must_use]
 pub fn is_word_char(c: char) -> bool {

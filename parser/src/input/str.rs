@@ -292,6 +292,13 @@ impl Input for StrInput<'_> {
         !self.buffer.is_empty() && self.buffer.as_bytes()[0].is_ascii_digit()
     }
 
+    /// Check if the next character is an ASCII alphanumeric, `_`, or `-`.
+    ///
+    /// This is used as a heuristic for error detection (e.g., when `:` is followed
+    /// by tab and then a potential value character). The ASCII-only check is intentional:
+    /// it catches common cases like `key:\tvalue` while avoiding false positives for
+    /// valid YAML constructs. Unicode value starters (e.g., `äöü`) are not detected,
+    /// but such cases will still fail to parse (with a less specific error message).
     #[inline]
     fn next_is_alpha(&self) -> bool {
         !self.buffer.is_empty()
@@ -330,11 +337,19 @@ impl Input for StrInput<'_> {
         i
     }
 
+    /// Fetch characters matching `is_alpha` (ASCII alphanumeric, `_`, `-`).
+    ///
+    /// This is used for scanning tag handles (e.g., `!foo!`). Per YAML 1.2 spec,
+    /// tag handles use `ns-word-char` which is `[0-9a-zA-Z-]`. Our implementation
+    /// is slightly more permissive by also accepting `_`, but this is harmless
+    /// and matches common practice. Unicode characters like `ä` or `π` are NOT
+    /// valid in tag handles per spec, so the ASCII-only byte-based scanning here
+    /// is both correct and efficient.
     fn fetch_while_is_alpha(&mut self, out: &mut String) -> usize {
         let bytes = self.buffer.as_bytes();
         let mut i = 0;
 
-        // Skip while we have alpha characters (all ASCII: 0-9, a-z, A-Z, _, -).
+        // All target characters are ASCII, so we can scan bytes directly.
         while i < bytes.len() {
             match bytes[i] {
                 b'0'..=b'9' | b'a'..=b'z' | b'A'..=b'Z' | b'_' | b'-' => i += 1,

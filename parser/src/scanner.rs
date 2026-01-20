@@ -2559,6 +2559,12 @@ impl<'input, T: Input> Scanner<'input, T> {
 
         // Skip over ':'.
         self.skip_non_blank();
+        // Error detection: if ':' is followed by tab(s) without any space, and then what looks
+        // like a value, emit a helpful error. The check for '-' or alphanumeric is an intentional
+        // heuristic that catches common cases (e.g., `key:\tvalue`, `key:\t-item`) without
+        // rejecting valid YAML like `key:\t|` (block scalar) or `key:\t"quoted"`.
+        // Note: This heuristic won't catch Unicode value starters like `key:\täöü`, but such
+        // cases will still fail to parse correctly (just with a less specific error message).
         if self.input.look_ch() == '\t'
             && !self.skip_ws_to_eol(SkipTabs::Yes)?.has_valid_yaml_ws()
             && (self.input.peek() == '-' || self.input.next_is_alpha())
