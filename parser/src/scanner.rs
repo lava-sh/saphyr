@@ -659,10 +659,12 @@ impl<'input, T: Input> Scanner<'input, T> {
         self.tokens.insert(pos, tok);
     }
 
+    #[inline]
     fn allow_simple_key(&mut self) {
         self.simple_key_allowed = true;
     }
 
+    #[inline]
     fn disallow_simple_key(&mut self) {
         self.simple_key_allowed = false;
     }
@@ -2667,13 +2669,15 @@ impl<'input, T: Input> Scanner<'input, T> {
             let required = self.flow_level == 0
                 && self.indent == (self.mark.col as isize)
                 && self.indents.last().unwrap().needs_block_end;
-            let mut sk = SimpleKey::new(self.mark);
-            sk.possible = true;
-            sk.required = required;
-            sk.token_number = self.tokens_parsed + self.tokens.len();
 
-            self.simple_keys.pop();
-            self.simple_keys.push(sk);
+            if let Some(last) = self.simple_keys.last_mut() {
+                *last = SimpleKey {
+                    mark: self.mark,
+                    possible: true,
+                    required,
+                    token_number: self.tokens_parsed + self.tokens.len()
+                };
+            }
         }
     }
 
