@@ -811,6 +811,17 @@ impl<'input, T: Input> Scanner<'input, T> {
                 }
             }
 
+            // Stop fetching immediately after document end/start markers
+            // to allow the parser to emit the event before reading more content.
+            if let Some(token) = self.tokens.back() {
+                if matches!(
+                    token.1,
+                    TokenType::DocumentEnd | TokenType::DocumentStart
+                ) {
+                    break;
+                }
+            }
+
             if !need_more {
                 break;
             }

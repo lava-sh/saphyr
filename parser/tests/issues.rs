@@ -433,3 +433,53 @@ fn test_issue84() {
         ]
     );
 }
+
+#[test]
+fn test_document_end_emitted_immediately() {
+    // Test that DocumentEnd event is emitted immediately after the document end marker (...)
+    // without reading more content ahead.
+    // The span of DocumentEnd should end right after the "..." marker.
+    let s = "foo\n...\nbar";
+    //       0123 456 789...
+    //       foo\n = 0-3 (4 chars)
+    //       ... = 4-6 (3 chars)
+    //       \n = 7
+    //       bar = 8-10
+
+    let events = run_parser_with_span(s).unwrap();
+
+    // Find the DocumentEnd event and check its span
+    let doc_end_event = events
+        .iter()
+        .find(|(ev, _)| matches!(ev, Event::DocumentEnd))
+        .expect("DocumentEnd event should exist");
+
+    // The DocumentEnd span should start at position 4 (start of "...")
+    // and end at position 7 (right after "...")
+    assert_eq!(doc_end_event.1.start.index(), 4, "DocumentEnd should start at the '...' marker");
+    assert_eq!(doc_end_event.1.end.index(), 7, "DocumentEnd should end right after the '...' marker");
+}
+
+#[test]
+fn test_document_start_emitted_immediately() {
+    // Test that DocumentStart event is emitted immediately after the document start marker (---)
+    // without reading more content ahead.
+    let s = "---\nfoo";
+    //       0123 456
+    //       --- = 0-2 (3 chars)
+    //       \n = 3
+    //       foo = 4-6
+
+    let events = run_parser_with_span(s).unwrap();
+
+    // Find the DocumentStart event and check its span
+    let doc_start_event = events
+        .iter()
+        .find(|(ev, _)| matches!(ev, Event::DocumentStart(true)))
+        .expect("DocumentStart(true) event should exist");
+
+    // The DocumentStart span should start at position 0 (start of "---")
+    // and end at position 3 (right after "---")
+    assert_eq!(doc_start_event.1.start.index(), 0, "DocumentStart should start at the '---' marker");
+    assert_eq!(doc_start_event.1.end.index(), 3, "DocumentStart should end right after the '---' marker");
+}
