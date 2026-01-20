@@ -64,6 +64,9 @@ hello:
 ```
 The expected string value is `this is a string --- still a string`.
 
+## Report the root cause of mismatching brackets
+When bracket (`[`,`{`) or quote lacks the matching closing bracket, unpatched `0.0.6` version currently reports then end of file as the location of the error. This may be very far from the actual cause of the error, and reporting the opening bracket is more helpful. Our version in such cases reports row and column of the opening bracket as the error location.
+
 # saphyr-parser
 
 [saphyr-parser](https://github.com/saphyr-rs/saphyr-parser) is a fully compliant YAML 1.2
