@@ -863,67 +863,94 @@ impl<'input, T: Input> Scanner<'input, T> {
     /// This function returns an error if a tabulation is encountered where there should not be
     /// one.
     fn skip_to_next_token(&mut self) -> ScanResult {
+        // Hot-path helper: consume a single logical linebreak and apply simple-key rules.
+        // (Kept local to ensure the compiler can inline it easily.)
+        let consume_linebreak = |this: &mut Self| {
+            this.input.lookahead(2);
+            this.skip_linebreak();
+            if this.flow_level == 0 {
+                this.allow_simple_key();
+            }
+        };
+
         loop {
-            // TODO(chenyh) BOM
             match self.input.look_ch() {
-                // Tabs may not be used as indentation.
-                // "Indentation" only exists as long as a block is started, but does not exist
-                // inside of flow-style constructs. Tabs are allowed as part of leading
-                // whitespaces outside of indentation.
-                // If a flow-style construct is in an indented block, its contents must still be
-                // indented. Also, tabs are allowed anywhere in it if it has no content.
-                '\t' if self.is_within_block()
-                    && self.leading_whitespace
-                    && (self.mark.col as isize) < self.indent =>
-                {
-                    self.skip_ws_to_eol(SkipTabs::Yes)?;
-                    // If we have content on that line with a tab, return an error.
-                    if !self.input.next_is_breakz() {
-                        return Err(ScanError::new_str(
-                            self.mark,
-                            "tabs disallowed within this context (block indentation)",
-                        ));
+                // Tabs may not be used as indentation (block context only).
+                '\t' => {
+                    if self.is_within_block()
+                        && self.leading_whitespace
+                        && (self.mark.col as isize) < self.indent
+                    {
+                        self.skip_ws_to_eol(SkipTabs::Yes)?;
+
+                        // If we have content on that line with a tab, return an error.
+                        if !self.input.next_is_breakz() {
+                            return Err(ScanError::new_str(
+                                self.mark,
+                                "tabs disallowed within this context (block indentation)",
+                            ));
+                        }
+
+                        // Micro-opt: if we stopped on a linebreak, consume it now (avoids another loop trip).
+                        if matches!(self.input.look_ch(), '\n' | '\r') {
+                            consume_linebreak(self);
+                        }
+                    } else {
+                        // Non-indentation tab behaves like blank.
+                        self.skip_blank();
                     }
                 }
-                '\t' | ' ' => self.skip_blank(),
-                '\n' | '\r' => {
-                    self.input.lookahead(2);
-                    self.skip_linebreak();
-                    if self.flow_level == 0 {
-                        self.allow_simple_key();
-                    }
-                }
+
+                ' ' => self.skip_blank(),
+
+                '\n' | '\r' => consume_linebreak(self),
+
                 '#' => {
-                    let comment_length = self.input.skip_while_non_breakz();
-                    self.mark.index += comment_length;
-                    self.mark.col += comment_length;
+                    // Skip the whole comment payload in one go.
+                    let n = self.input.skip_while_non_breakz();
+                    self.mark.index += n;
+                    self.mark.col += n;
+
+                    // Micro-opt: comment-only lines are common; consume the following linebreak here.
+                    if matches!(self.input.look_ch(), '\n' | '\r') {
+                        consume_linebreak(self);
+                    }
                 }
+
                 _ => break,
             }
         }
+
         // If a plain scalar was interrupted by a comment, and the next line could
         // continue the scalar in block context, this is invalid.
         if let Some(err_mark) = self.interrupted_plain_by_comment.take() {
-            // Ensure enough lookahead for the check below (peek and peek_nth) and for
-            // document indicator detection which needs 4 chars.
-            self.input.lookahead(4);
             // BS4K should only trigger when the continuation would start on the immediate next
             // line (no intervening empty/comment-only lines). A blank line resets the folding
             // opportunity and thus should not error.
             let is_immediate_next_line = self.mark.line == err_mark.line + 1;
+
+            // Optimization: do the cheap checks first; only then request extra lookahead / do deeper checks.
             if self.flow_level == 0
                 && is_immediate_next_line
-                && self.mark.col as isize > self.indent
-                && !self.input.next_is_z()
-                && !self.input.next_is_document_indicator()
-                && self.input.next_can_be_plain_scalar(false)
+                && (self.mark.col as isize) > self.indent
             {
-                return Err(ScanError::new_str(
-                    err_mark,
-                    "comment intercepting the multiline text",
-                ));
+                // Ensure enough lookahead for:
+                // - the checks below (peek/peek_nth)
+                // - document indicator detection which needs 4 chars.
+                self.input.lookahead(4);
+
+                if !self.input.next_is_z()
+                    && !self.input.next_is_document_indicator()
+                    && self.input.next_can_be_plain_scalar(false)
+                {
+                    return Err(ScanError::new_str(
+                        err_mark,
+                        "comment intercepting the multiline text",
+                    ));
+                }
             }
         }
+
         Ok(())
     }
 
