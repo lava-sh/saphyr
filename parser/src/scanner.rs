@@ -152,12 +152,14 @@ pub struct ScanError {
 impl ScanError {
     /// Create a new error from a location and an error string.
     #[must_use]
+    #[cold]
     pub fn new(loc: Marker, info: String) -> ScanError {
         ScanError { mark: loc, info }
     }
 
     /// Convenience alias for string slices.
     #[must_use]
+    #[cold]
     pub fn new_str(loc: Marker, info: &str) -> ScanError {
         ScanError {
             mark: loc,
