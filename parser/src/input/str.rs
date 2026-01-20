@@ -302,27 +302,33 @@ impl Input for StrInput<'_> {
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
-        let mut byte_pos: usize = 0;
-        let mut chars = self.buffer.chars();
-        while let Some(c) = chars.next() {
-            if is_breakz(c) {
-                break;
+        let buf = self.buffer;
+        let bytes = buf.as_bytes();
+        let mut i = 0;
+
+        while i < bytes.len() {
+            match bytes[i] {
+                0 | b'\n' | b'\r' => break,
+                _ => i += 1,
             }
-            byte_pos += c.len_utf8();
         }
-        self.buffer = &self.buffer[byte_pos..];
-        byte_pos
+
+        self.buffer = &buf[i..];
+        i
     }
 
+    #[inline]
     fn skip_while_blank(&mut self) -> usize {
-        // Since all characters we look for are ascii, we can directly use the byte API of str.
+        let bytes = self.buffer.as_bytes();
+
         let mut i = 0;
-        while i < self.buffer.len() {
-            if !is_blank(self.buffer.as_bytes()[i] as char) {
-                break;
+        while i < bytes.len() {
+            match bytes[i] {
+                b' ' | b'\t' => i += 1,
+                _ => break,
             }
-            i += 1;
         }
+
         self.buffer = &self.buffer[i..];
         i
     }

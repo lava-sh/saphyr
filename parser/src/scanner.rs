@@ -2007,7 +2007,6 @@ impl<'input, T: Input> Scanner<'input, T> {
     }
 
     #[allow(clippy::too_many_lines)]
-    #[allow(clippy::too_many_lines)]
     fn scan_flow_scalar(&mut self, single: bool) -> Result<Token<'input>, ScanError> {
         let start_mark = self.mark;
 
