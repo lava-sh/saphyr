@@ -1978,14 +1978,16 @@ impl<'input, T: Input> Scanner<'input, T> {
     }
 
     #[allow(clippy::too_many_lines)]
+    #[allow(clippy::too_many_lines)]
     fn scan_flow_scalar(&mut self, single: bool) -> Result<Token<'input>, ScanError> {
         let start_mark = self.mark;
 
+        // Output scalar contents.
         let mut string = String::new();
-        let mut leading_break = String::new();
-        let mut trailing_breaks = String::new();
-        let mut whitespaces = String::new();
-        let mut leading_blanks;
+
+        // Scratch used to consume the *first* line break in a break run without emitting it.
+        // (The first break folds to ' ' or to nothing depending on escaping rules.)
+        let mut break_scratch = String::new();
 
         /* Eat the left quote. */
         self.skip_non_blank();
@@ -2002,19 +2004,12 @@ impl<'input, T: Input> Scanner<'input, T> {
             }
 
             if self.input.next_is_z() {
-                return Err(ScanError::new_str(
-                    start_mark,
-                    "unclosed quote",
-                ));
+                return Err(ScanError::new_str(start_mark, "unclosed quote"));
             }
 
             // Do not enforce block indentation inside quoted (flow) scalars.
-            // YAML allows line breaks within quoted scalars, and the following line
-            // may start at a column less than the current block indent. We still
-            // validate tabs-as-indentation below when applicable, but we should
-            // not fail on a smaller column here.
-
-            leading_blanks = false;
+            // YAML allows line breaks within quoted scalars.
+            let mut leading_blanks = false;
             self.consume_flow_scalar_non_whitespace_chars(
                 single,
                 &mut string,
@@ -2027,6 +2022,25 @@ impl<'input, T: Input> Scanner<'input, T> {
                 '"' if !single => break,
                 _ => {}
             }
+
+            // --- Faster whitespace / line break handling (no temporary Strings) ---
+            //
+            // Instead of:
+            //   - collecting blanks into `whitespaces` and then copying
+            //   - collecting breaks into `leading_break` / `trailing_breaks` and then copying
+            //
+            // We do:
+            //   - append trailing blanks directly to `string`, remember where they started,
+            //     and truncate them if a line break follows.
+            //   - for line breaks: consume the first break into a scratch (discarded),
+            //     append subsequent breaks directly to `string`.
+            //
+            // These flags mirror the old "is_empty()" checks:
+            //   has_leading_break  <=> !leading_break.is_empty()
+            //   has_trailing_breaks <=> !trailing_breaks.is_empty()
+            let mut trailing_ws_start: Option<usize> = None;
+            let mut has_leading_break = false;
+            let mut has_trailing_breaks = false;
 
             // Consume blank characters.
             while self.input.next_is_blank() || self.input.next_is_break() {
@@ -2041,32 +2055,42 @@ impl<'input, T: Input> Scanner<'input, T> {
                         }
                         self.skip_blank();
                     } else {
-                        whitespaces.push(self.input.peek());
+                        // Append to output immediately; if a break appears next, we'll truncate.
+                        if trailing_ws_start.is_none() {
+                            trailing_ws_start = Some(string.len());
+                        }
+                        string.push(self.input.peek());
                         self.skip_blank();
                     }
                 } else {
                     self.input.lookahead(2);
+
                     // Check if it is a first line break.
                     if leading_blanks {
-                        self.read_break(&mut trailing_breaks);
+                        // Second+ line break in a run: preserve it.
+                        self.read_break(&mut string);
+                        has_trailing_breaks = true;
                     } else {
-                        whitespaces.clear();
-                        self.read_break(&mut leading_break);
+                        // First break: drop any trailing blanks we appended, then consume the break.
+                        if let Some(pos) = trailing_ws_start.take() {
+                            string.truncate(pos);
+                        }
+
+                        break_scratch.clear();
+                        self.read_break(&mut break_scratch);
+                        // Keep `break_scratch` content (ignored) until next clear; no need to clear twice.
+
+                        has_leading_break = true;
                         leading_blanks = true;
                     }
                 }
+
                 self.input.lookahead(1);
             }
 
             // If we had a line break inside a quoted (flow) scalar, validate indentation
-            // of the continuation line in block context. YAML test-suite (e.g., QB6E)
-            // expects that a quoted scalar split across lines must not continue at or
-            // before the current block indent when in block context; such cases should
-            // be treated as invalid indentation of a multiline quoted scalar.
-            if leading_blanks && !leading_break.is_empty() && self.flow_level == 0 {
-                // After a real (unescaped) line break inside a quoted scalar in block context,
-                // the continuation content line must be indented beyond the current block indent.
-                // However, allow the line to start with the closing quote at any column.
+            // of the continuation line in block context.
+            if leading_blanks && has_leading_break && self.flow_level == 0 {
                 let next_ch = self.input.peek();
                 let is_closing_quote = (single && next_ch == '\'') || (!single && next_ch == '"');
                 if !is_closing_quote && (self.mark.col as isize) <= self.indent {
@@ -2079,28 +2103,20 @@ impl<'input, T: Input> Scanner<'input, T> {
 
             // Join the whitespaces or fold line breaks.
             if leading_blanks {
-                if leading_break.is_empty() {
-                    string.push_str(&leading_break);
-                    string.push_str(&trailing_breaks);
-                    trailing_breaks.clear();
-                    leading_break.clear();
-                } else {
-                    if trailing_breaks.is_empty() {
-                        string.push(' ');
-                    } else {
-                        string.push_str(&trailing_breaks);
-                        trailing_breaks.clear();
-                    }
-                    leading_break.clear();
+                // Old logic:
+                //   if leading_break empty => emit trailing_breaks (already emitted now)
+                //   else if trailing_breaks empty => emit ' '
+                //   else emit trailing_breaks (already emitted now)
+                if has_leading_break && !has_trailing_breaks {
+                    string.push(' ');
                 }
-            } else {
-                string.push_str(&whitespaces);
-                whitespaces.clear();
             }
+            // else: trailing blanks are already appended to `string`
         } // loop
 
         // Eat the right quote.
         self.skip_non_blank();
+
         // Ensure there is no invalid trailing content.
         self.skip_ws_to_eol(SkipTabs::Yes)?;
         match self.input.peek() {
@@ -2126,6 +2142,7 @@ impl<'input, T: Input> Scanner<'input, T> {
         } else {
             ScalarStyle::DoubleQuoted
         };
+
         Ok(Token(
             Span::new(start_mark, self.mark),
             TokenType::Scalar(style, string.into()),
