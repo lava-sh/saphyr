@@ -1894,12 +1894,16 @@ impl<'input, T: Input> Scanner<'input, T> {
             // characters are appended here as their real size (1B for ascii, or up to 4 bytes for
             // UTF-8). We can then use the internal `line_buffer` `Vec` to push data into `string`
             // (using `String::push_str`).
+
+            // line_buffer is empty at this point so we can compute n_chars here as well
+            let mut n_chars = 0;
+            debug_assert!(line_buffer.is_empty());
             while let Some(c) = self.input.raw_read_non_breakz_ch() {
                 line_buffer.push(c);
+                n_chars += 1;
             }
 
             // We need to manually update our position; we haven't called a `skip` function.
-            let n_chars = line_buffer.chars().count();
             self.mark.col += n_chars;
             self.mark.index += n_chars;
 
