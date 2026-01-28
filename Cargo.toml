@@ -44,7 +44,7 @@ rustyline = "17.0.2"
 saphyr = { path = "saphyr" }
 saphyr-bench = { path = "bench" }
 saphyr-parser = { path = "parser", package = "saphyr-parser-bw" }
-thiserror = { version = "2.0.17", default-features = false }
+thiserror = { version = "2.0.18", default-features = false }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
