@@ -17,8 +17,6 @@ use alloc::{
 };
 use core::char;
 
-use smallstr::SmallString;
-
 use thiserror::Error;
 
 use crate::{
@@ -28,8 +26,6 @@ use crate::{
     },
     input::{Input, SkipTabs},
 };
-
-pub(crate) type SmallStr = SmallString<[u8; 32]>;
 
 /// The encoding of the input. Currently, only UTF-8 is supported.
 #[derive(Clone, Copy, PartialEq, Debug, Eq)]
@@ -150,14 +146,14 @@ pub struct ScanError {
     /// The position at which the error happened in the source.
     mark: Marker,
     /// Human-readable details about the error.
-    info: SmallStr,
+    info: String,
 }
 
 impl ScanError {
     /// Create a new error from a location and an error string.
     #[must_use]
     #[cold]
-    pub fn new(loc: Marker, info: SmallStr) -> ScanError {
+    pub fn new(loc: Marker, info: String) -> ScanError {
         ScanError { mark: loc, info }
     }
 
@@ -167,7 +163,7 @@ impl ScanError {
     pub fn new_str(loc: Marker, info: &str) -> ScanError {
         ScanError {
             mark: loc,
-            info: SmallStr::from(info),
+            info: info.to_owned(),
         }
     }
 
@@ -180,7 +176,7 @@ impl ScanError {
     /// Return the information string describing the error that happened.
     #[must_use]
     pub fn info(&self) -> &str {
-        self.info.as_str()
+        self.info.as_ref()
     }
 }
 
@@ -242,18 +238,18 @@ pub enum TokenType<'input> {
     /// A YAML tag (starting with bangs `!`).
     Tag(
         /// The handle of the tag.
-        SmallStr,
+        String,
         /// The suffix of the tag.
-        SmallStr,
+        String,
     ),
     /// A regular YAML scalar.
     Scalar(ScalarStyle, Cow<'input, str>),
     /// A reserved YAML directive.
     ReservedDirective(
         /// Name
-        SmallStr,
+        String,
         /// Parameters
-        Vec<SmallStr>,
+        Vec<String>,
     ),
 }
 
@@ -766,7 +762,7 @@ impl<'input, T: Input> Scanner<'input, T> {
             }
             '%' | '@' | '`' => Err(ScanError::new(
                 self.mark,
-                format!("unexpected character: `{c}'").into(),
+                format!("unexpected character: `{c}'"),
             )),
             _ => self.fetch_plain_scalar(),
         }
@@ -1024,10 +1020,7 @@ impl<'input, T: Input> Scanner<'input, T> {
         }
 
         if let Some((mark, bracket)) = self.flow_markers.pop() {
-            return Err(ScanError::new(
-                mark,
-                format!("unclosed bracket '{}'", bracket).into(),
-            ));
+            return Err(ScanError::new(mark, format!("unclosed bracket '{}'", bracket)));
         }
 
         // If the stream ended, we won't have more context. We can stall all the simple keys we
@@ -1080,13 +1073,13 @@ impl<'input, T: Input> Scanner<'input, T> {
                         let n_chars = self.input.fetch_while_is_yaml_non_space(&mut param);
                         self.mark.index += n_chars;
                         self.mark.col += n_chars;
-                        params.push(param.into());
+                        params.push(param);
                     }
                 }
 
                 Token(
                     Span::new(start_mark, self.mark),
-                    TokenType::ReservedDirective(name.into(), params),
+                    TokenType::ReservedDirective(name, params),
                 )
             }
         };
@@ -1252,7 +1245,7 @@ impl<'input, T: Input> Scanner<'input, T> {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token(
                 Span::new(start_mark, self.mark),
-                TokenType::Tag(handle.into(), suffix.into()),
+                TokenType::Tag(handle, suffix),
             ))
         } else {
             Err(ScanError::new_str(
@@ -1654,10 +1647,7 @@ impl<'input, T: Input> Scanner<'input, T> {
 
     fn fetch_document_indicator(&mut self, t: TokenType<'input>) -> ScanResult {
         if let Some((mark, bracket)) = self.flow_markers.pop() {
-            return Err(ScanError::new(
-                mark,
-                format!("unclosed bracket '{}'", bracket).into(),
-            ));
+            return Err(ScanError::new(mark, format!("unclosed bracket '{}'", bracket)));
         }
 
         self.unroll_indent(-1);

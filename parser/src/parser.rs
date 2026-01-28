@@ -6,7 +6,7 @@
 
 use crate::{
     input::{str::StrInput, Input},
-    scanner::{ScalarStyle, ScanError, Scanner, SmallStr, Span, Token, TokenType},
+    scanner::{ScalarStyle, ScanError, Scanner, Span, Token, TokenType},
     BufferedInput, Marker,
 };
 
@@ -869,7 +869,7 @@ impl<'input, T: Input> Parser<'input, T> {
                     anchor_id = self.register_anchor(name, &span);
                     if let TokenType::Tag(..) = self.peek_token()?.1 {
                         if let TokenType::Tag(handle, suffix) = self.fetch_token().1 {
-                            tag = Some(self.resolve_tag(span, handle.as_str(), suffix)?);
+                            tag = Some(self.resolve_tag(span, &handle, suffix)?);
                         } else {
                             unreachable!()
                         }
@@ -880,7 +880,7 @@ impl<'input, T: Input> Parser<'input, T> {
             }
             Token(mark, TokenType::Tag(..)) => {
                 if let TokenType::Tag(handle, suffix) = self.fetch_token().1 {
-                    tag = Some(self.resolve_tag(mark, handle.as_str(), suffix)?);
+                    tag = Some(self.resolve_tag(mark, &handle, suffix)?);
                     if let TokenType::Anchor(_) = &self.peek_token()?.1 {
                         if let Token(mark, TokenType::Anchor(name)) = self.fetch_token() {
                             anchor_id = self.register_anchor(name, &mark);
@@ -1269,9 +1269,8 @@ impl<'input, T: Input> Parser<'input, T> {
         &self,
         span: Span,
         handle: &str,
-        suffix: SmallStr,
+        suffix: String,
     ) -> Result<Cow<'input, Tag>, ScanError> {
-        let suffix = suffix.as_str().to_string();
         let tag = if handle == "!!" {
             // "!!" is a shorthand for "tag:yaml.org,2002:". However, that default can be
             // overridden.
