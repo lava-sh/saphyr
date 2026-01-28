@@ -41,6 +41,7 @@ miette = { version = "7.5.0", features = ["fancy"] }
 ordered-float = { version = "5.1", default-features = false }
 quickcheck = "1.0"
 rustyline = "17.0.2"
+smallstr = "0.3"
 saphyr = { path = "saphyr" }
 saphyr-bench = { path = "bench" }
 saphyr-parser = { path = "parser", package = "saphyr-parser-bw" }
