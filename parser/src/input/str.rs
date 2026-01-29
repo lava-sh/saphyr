@@ -77,9 +77,15 @@ impl Input for StrInput<'_> {
 
     #[inline]
     fn skip(&mut self) {
-        let mut chars = self.buffer.chars();
-        if chars.next().is_some() {
-            self.buffer = chars.as_str();
+        if !self.buffer.is_empty() {
+            let b = self.buffer.as_bytes()[0];
+            if b < 0x80 {
+                self.buffer = &self.buffer[1..];
+            } else {
+                let mut chars = self.buffer.chars();
+                chars.next();
+                self.buffer = chars.as_str();
+            }
         }
     }
 
@@ -96,11 +102,26 @@ impl Input for StrInput<'_> {
 
     #[inline]
     fn peek(&self) -> char {
-        self.buffer.chars().next().unwrap_or('\0')
+        if self.buffer.is_empty() {
+            return '\0';
+        }
+        let b = self.buffer.as_bytes()[0];
+        if b < 0x80 {
+            b as char
+        } else {
+            self.buffer.chars().next().unwrap()
+        }
     }
 
     #[inline]
     fn peek_nth(&self, n: usize) -> char {
+        if n == 0 {
+            return self.peek();
+        }
+        let bytes = self.buffer.as_bytes();
+        if n == 1 && bytes.len() >= 2 && bytes[0] < 0x80 && bytes[1] < 0x80 {
+            return bytes[1] as char;
+        }
         let mut chars = self.buffer.chars();
         for _ in 0..n {
             if chars.next().is_none() {
@@ -373,13 +394,71 @@ impl Input for StrInput<'_> {
             if !crate::char_traits::is_yaml_non_space(c) {
                 break;
             }
-            out.push(c);
             byte_pos += c.len_utf8();
         }
+
+        out.push_str(&self.buffer[..byte_pos]);
 
         self.buffer = &self.buffer[byte_pos..];
 
         byte_pos
+    }
+
+    fn fetch_plain_scalar_chunk(&mut self, out: &mut String, _count: usize, flow_level_gt_0: bool) -> (bool, usize) {
+        let bytes = self.buffer.as_bytes();
+        let len = bytes.len();
+        let mut byte_pos = 0;
+        let mut chars_consumed = 0;
+
+        while byte_pos < len {
+            let b = bytes[byte_pos];
+            if b < 0x80 {
+                let c = b as char;
+                if crate::char_traits::is_blank_or_breakz(c) {
+                    out.push_str(&self.buffer[..byte_pos]);
+                    self.buffer = &self.buffer[byte_pos..];
+                    return (true, chars_consumed);
+                }
+                if flow_level_gt_0 && crate::char_traits::is_flow(c) {
+                    out.push_str(&self.buffer[..byte_pos]);
+                    self.buffer = &self.buffer[byte_pos..];
+                    return (true, chars_consumed);
+                }
+                if c == ':' {
+                    let next_byte = if byte_pos + 1 < len {
+                        bytes[byte_pos + 1]
+                    } else {
+                        0
+                    };
+                    // ASCII optimization: if next_byte >= 0x80, it is not blank/breakz/flow
+                    let is_stop = if next_byte < 0x80 {
+                        let nc = next_byte as char;
+                        crate::char_traits::is_blank_or_breakz(nc) || (flow_level_gt_0 && crate::char_traits::is_flow(nc))
+                    } else {
+                        false
+                    };
+                    
+                    if is_stop {
+                        out.push_str(&self.buffer[..byte_pos]);
+                        self.buffer = &self.buffer[byte_pos..];
+                        return (true, chars_consumed);
+                    }
+                }
+                byte_pos += 1;
+                chars_consumed += 1;
+            } else {
+                let mut chars = self.buffer[byte_pos..].chars();
+                let c = chars.next().unwrap();
+                byte_pos += c.len_utf8();
+                chars_consumed += 1;
+            }
+        }
+
+        out.push_str(&self.buffer[..byte_pos]);
+        self.buffer = &self.buffer[byte_pos..];
+        // If we reached here, we consumed the whole string (EOF).
+        // EOF is effectively a stop condition (breakz).
+        (true, chars_consumed)
     }
 }
 

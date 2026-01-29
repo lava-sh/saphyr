@@ -2404,17 +2404,17 @@ impl<'input, T: Input> Scanner<'input, T> {
                     // Fill the buffer once and process all characters in the buffer until the next
                     // fetch. Note that `next_can_be_plain_scalar` needs 2 lookahead characters,
                     // hence the `for` loop looping `self.input.bufmaxlen() - 1` times.
+                    let len_before = string.len();
                     self.input.lookahead(self.input.bufmaxlen());
-                    for _ in 0..self.input.bufmaxlen() - 1 {
-                        if self.input.next_is_blank_or_breakz()
-                            || !self.input.next_can_be_plain_scalar(self.flow_level > 0)
-                        {
-                            end = true;
-                            break;
-                        }
-                        string.push(self.input.peek());
-                        self.skip_non_blank();
-                    }
+                    let (stop, chars_consumed) = self.input.fetch_plain_scalar_chunk(
+                        &mut string,
+                        self.input.bufmaxlen() - 1,
+                        self.flow_level > 0,
+                    );
+                    end = stop;
+                    let bytes_consumed = string.len() - len_before;
+                    self.mark.index += bytes_consumed;
+                    self.mark.col += chars_consumed;
                 }
                 end_mark = self.mark;
             }
