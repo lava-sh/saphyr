@@ -411,36 +411,37 @@ impl<'input, T: Input> Parser<'input, T> {
         let token = self.scanner.next();
         match token {
             None => match self.scanner.get_error() {
-                None => {
-                    let info = match self.state {
-                        State::FlowSequenceFirstEntry | State::FlowSequenceEntry => {
-                            "unexpected EOF while parsing a flow sequence"
-                        }
-                        State::FlowMappingFirstKey
-                        | State::FlowMappingKey
-                        | State::FlowMappingValue
-                        | State::FlowMappingEmptyValue => {
-                            "unexpected EOF while parsing a flow mapping"
-                        }
-                        State::FlowSequenceEntryMappingKey
-                        | State::FlowSequenceEntryMappingValue
-                        | State::FlowSequenceEntryMappingEnd(_) => {
-                            "unexpected EOF while parsing an implicit flow mapping"
-                        }
-                        State::BlockSequenceFirstEntry | State::BlockSequenceEntry => {
-                            "unexpected EOF while parsing a block sequence"
-                        }
-                        State::BlockMappingFirstKey
-                        | State::BlockMappingKey
-                        | State::BlockMappingValue => "unexpected EOF while parsing a block mapping",
-                        _ => "unexpected eof",
-                    };
-                    Err(ScanError::new_str(self.scanner.mark(), info))
-                }
+                None => Err(self.unexpected_eof()),
                 Some(e) => Err(e),
             },
             Some(tok) => Ok(tok),
         }
+    }
+
+    #[cold]
+    fn unexpected_eof(&self) -> ScanError {
+        let info = match self.state {
+            State::FlowSequenceFirstEntry | State::FlowSequenceEntry => {
+                "unexpected EOF while parsing a flow sequence"
+            }
+            State::FlowMappingFirstKey
+            | State::FlowMappingKey
+            | State::FlowMappingValue
+            | State::FlowMappingEmptyValue => "unexpected EOF while parsing a flow mapping",
+            State::FlowSequenceEntryMappingKey
+            | State::FlowSequenceEntryMappingValue
+            | State::FlowSequenceEntryMappingEnd(_) => {
+                "unexpected EOF while parsing an implicit flow mapping"
+            }
+            State::BlockSequenceFirstEntry | State::BlockSequenceEntry => {
+                "unexpected EOF while parsing a block sequence"
+            }
+            State::BlockMappingFirstKey | State::BlockMappingKey | State::BlockMappingValue => {
+                "unexpected EOF while parsing a block mapping"
+            }
+            _ => "unexpected eof",
+        };
+        ScanError::new_str(self.scanner.mark(), info)
     }
 
     fn fetch_token<'a>(&mut self) -> Token<'a>

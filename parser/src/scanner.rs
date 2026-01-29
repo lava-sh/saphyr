@@ -551,6 +551,16 @@ impl<'input, T: Input> Scanner<'input, T> {
         self.error.clone()
     }
 
+    #[cold]
+    fn simple_key_expected(&self) -> ScanError {
+        ScanError::new_str(self.mark, "simple key expected")
+    }
+
+    #[cold]
+    fn unclosed_bracket(&self, mark: Marker, bracket: char) -> ScanError {
+        ScanError::new(mark, format!("unclosed bracket '{}'", bracket))
+    }
+
     /// Consume the next character. It is assumed the next character is a blank.
     #[inline]
     fn skip_blank(&mut self) {
@@ -1020,14 +1030,14 @@ impl<'input, T: Input> Scanner<'input, T> {
         }
 
         if let Some((mark, bracket)) = self.flow_markers.pop() {
-            return Err(ScanError::new(mark, format!("unclosed bracket '{}'", bracket)));
+            return Err(self.unclosed_bracket(mark, bracket));
         }
 
         // If the stream ended, we won't have more context. We can stall all the simple keys we
         // had. If one was required, however, that was an error and we must propagate it.
         for sk in &mut self.simple_keys {
             if sk.required && sk.possible {
-                return Err(ScanError::new_str(self.mark, "simple key expected"));
+                return Err(self.simple_key_expected());
             }
             sk.possible = false;
         }
@@ -2750,7 +2760,7 @@ impl<'input, T: Input> Scanner<'input, T> {
     fn remove_simple_key(&mut self) -> ScanResult {
         let last = self.simple_keys.last_mut().unwrap();
         if last.possible && last.required {
-            return Err(ScanError::new_str(self.mark, "simple key expected"));
+            return Err(self.simple_key_expected());
         }
 
         last.possible = false;
