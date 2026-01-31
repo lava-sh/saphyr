@@ -1,5 +1,5 @@
 use crate::char_traits::is_breakz;
-use crate::input::Input;
+use crate::input::{BorrowedInput, Input};
 
 use arraydeque::ArrayDeque;
 
@@ -100,5 +100,14 @@ impl<T: Iterator<Item = char>> Input for BufferedInput<T> {
     #[inline]
     fn peek_nth(&self, n: usize) -> char {
         self.buffer[n]
+    }
+}
+
+/// `BufferedInput` does not support zero-copy slicing since it's a streaming input
+/// without stable backing storage.
+impl<T: Iterator<Item = char>> BorrowedInput<'static> for BufferedInput<T> {
+    #[inline]
+    fn slice_borrowed(&self, _start: usize, _end: usize) -> Option<&'static str> {
+        None
     }
 }

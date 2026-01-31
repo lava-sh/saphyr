@@ -18,8 +18,10 @@ fn test_wide_non_ascii_positions() {
     if let Event::Scalar(v, _, _, _) = event {
         assert_eq!(v, "\u{1F602}");
         assert_eq!(span.start.index(), 7);
-        assert_eq!(span.end.index(), 11);
-        assert_eq!(span.len(), 4);
+        assert_eq!(span.end.index(), 8);
+        assert_eq!(span.len(), 1);
+        assert_eq!(span.start.byte_offset(), Some(7));
+        assert_eq!(span.end.byte_offset(), Some(11));
         assert_eq!(span.start.line(), 1);
         assert_eq!(span.start.col(), 7);
     }
@@ -28,7 +30,8 @@ fn test_wide_non_ascii_positions() {
     let (event, span) = parser.next().unwrap().unwrap();
     if let Event::Scalar(v, _, _, _) = event {
         assert_eq!(v, "next");
-        assert_eq!(span.start.index(), 12);
+        assert_eq!(span.start.index(), 9);
+        assert_eq!(span.start.byte_offset(), Some(12));
         assert_eq!(span.start.line(), 2);
         assert_eq!(span.start.col(), 0);
     }
@@ -46,7 +49,8 @@ fn test_wide_chars_in_comments() {
         assert_eq!(v, "next");
         assert_eq!(span.start.line(), 2);
         assert_eq!(span.start.col(), 0);
-        assert_eq!(span.start.index(), 32);
+        assert_eq!(span.start.index(), 29);
+        assert_eq!(span.start.byte_offset(), Some(32));
     }
 }
 
@@ -62,6 +66,6 @@ fn test_block_scalar_wide_chars() {
         assert_eq!(span.start.line(), 2);
         assert_eq!(span.start.col(), 2);
         assert_eq!(span.end.line(), 3);
-        assert_eq!(span.end.col(), 6);
+        assert_eq!(span.end.col(), 3);
     }
 }

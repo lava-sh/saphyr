@@ -1,13 +1,21 @@
 use crate::{
     char_traits::{is_blank_or_breakz, is_breakz, is_flow},
-    input::{Input, SkipTabs},
+    input::{BorrowedInput, Input, SkipTabs},
 };
 use alloc::string::String;
 
 /// A parser input that uses a `&str` as source.
 #[allow(clippy::module_name_repetitions)]
 pub struct StrInput<'a> {
+    /// The full, original input string.
+    ///
+    /// This is kept to support O(1) byte-offset capture and zero-copy slicing via the optional
+    /// [`Input::byte_offset`] / [`Input::slice_bytes`] APIs.
+    original: &'a str,
     /// The input str buffer.
+    ///
+    /// This is a moving window into [`Self::original`]. All consuming operations advance this
+    /// slice.
     buffer: &'a str,
     /// The number of characters we have looked ahead.
     ///
@@ -21,9 +29,20 @@ impl<'a> StrInput<'a> {
     #[must_use]
     pub fn new(input: &'a str) -> Self {
         Self {
+            original: input,
             buffer: input,
             lookahead: 0,
         }
+    }
+
+    /// Return the number of bytes consumed from the original input.
+    ///
+    /// This is an O(1) operation derived from the invariant that [`Self::buffer`] is always a
+    /// suffix of [`Self::original`].
+    #[inline]
+    #[must_use]
+    fn consumed_bytes(&self) -> usize {
+        self.original.len() - self.buffer.len()
     }
 }
 
@@ -129,6 +148,18 @@ impl Input for StrInput<'_> {
             }
         }
         chars.next().unwrap_or('\0')
+    }
+
+    #[inline]
+    fn byte_offset(&self) -> Option<usize> {
+        Some(self.consumed_bytes())
+    }
+
+    #[inline]
+    fn slice_bytes(&self, start: usize, end: usize) -> Option<&str> {
+        debug_assert!(start <= end);
+        debug_assert!(end <= self.original.len());
+        self.original.get(start..end)
     }
 
     #[inline]
@@ -327,19 +358,19 @@ impl Input for StrInput<'_> {
     }
 
     fn skip_while_non_breakz(&mut self) -> usize {
-        let buf = self.buffer;
-        let bytes = buf.as_bytes();
-        let mut i = 0;
+        let mut byte_pos = 0;
+        let mut chars_consumed = 0;
 
-        while i < bytes.len() {
-            match bytes[i] {
-                0 | b'\n' | b'\r' => break,
-                _ => i += 1,
+        for (i, c) in self.buffer.char_indices() {
+            if is_breakz(c) {
+                break;
             }
+            byte_pos = i + c.len_utf8();
+            chars_consumed += 1;
         }
 
-        self.buffer = &buf[i..];
-        i
+        self.buffer = &self.buffer[byte_pos..];
+        chars_consumed
     }
 
     #[inline]
@@ -453,6 +484,15 @@ impl Input for StrInput<'_> {
         // If we reached here, we consumed the whole string (EOF).
         // EOF is effectively a stop condition (breakz).
         (true, chars_consumed)
+    }
+}
+
+impl<'a> BorrowedInput<'a> for StrInput<'a> {
+    #[inline]
+    fn slice_borrowed(&self, start: usize, end: usize) -> Option<&'a str> {
+        debug_assert!(start <= end);
+        debug_assert!(end <= self.original.len());
+        self.original.get(start..end)
     }
 }
 

@@ -10,9 +10,9 @@ use core::{
 };
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{ScalarStyle, Tag};
+use saphyr_parser::{BufferedInput, Parser, ScanError, ScalarStyle, Tag};
 
-use crate::{LoadableYamlNode, Scalar, YamlOwned};
+use crate::{LoadableYamlNode, Scalar, YamlOwned, loader::YamlLoader};
 
 /// A YAML node is stored as this `Yaml` enumeration, which provides an easy way to
 /// access your YAML document.
@@ -193,6 +193,13 @@ impl<'input> LoadableYamlNode<'input> for Yaml<'input> {
 
     fn take(&mut self) -> Self {
         core::mem::replace(self, Yaml::BadValue)
+    }
+
+    fn load_from_iter<I: Iterator<Item = char>>(source: I) -> Result<Vec<Self>, ScanError> {
+        let mut parser = Parser::new(BufferedInput::new(source));
+        let mut loader = YamlLoader::<Yaml<'static>>::default();
+        parser.load(&mut loader, true)?;
+        Ok(loader.into_documents())
     }
 }
 

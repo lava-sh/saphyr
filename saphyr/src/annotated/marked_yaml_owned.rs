@@ -10,11 +10,11 @@ use alloc::{
 };
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{ScalarStyle, Span, Tag};
+use saphyr_parser::{BufferedInput, Parser, ScanError, ScalarStyle, Span, Tag};
 
 use crate::{
-    index::SafelyIndexMut, Accessor, LoadableYamlNode, SafelyIndex, ScalarOwned, Yaml,
-    YamlDataOwned,
+    index::SafelyIndexMut, loader::YamlLoader, Accessor, LoadableYamlNode, SafelyIndex,
+    ScalarOwned, Yaml, YamlDataOwned,
 };
 
 /// A YAML node with [`Span`]s pointing to the start of the node.
@@ -228,5 +228,12 @@ impl LoadableYamlNode<'_> for MarkedYamlOwned {
     fn with_end_marker(mut self, end: saphyr_parser::Marker) -> Self {
         self.span.end = end;
         self
+    }
+
+    fn load_from_iter<I: Iterator<Item = char>>(source: I) -> Result<Vec<Self>, ScanError> {
+        let mut parser = Parser::new(BufferedInput::new(source));
+        let mut loader = YamlLoader::<Self>::default();
+        parser.load(&mut loader, true)?;
+        Ok(loader.into_documents())
     }
 }

@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 
 use hashlink::LinkedHashMap;
 use saphyr_parser::{
-    BufferedInput, Event, Input, Marker, Parser, ScanError, Span, SpannedEventReceiver, Tag,
+    BorrowedInput, Event, Marker, Parser, ScanError, Span, SpannedEventReceiver, Tag,
 };
 use thiserror::Error;
 
@@ -194,10 +194,7 @@ pub trait LoadableYamlNode<'input>: Clone + core::hash::Hash + Eq {
     /// Returns [`ScanError`] when loading fails.
     ///
     /// [`load_from_str`]: LoadableYamlNode::load_from_str
-    fn load_from_iter<I: Iterator<Item = char>>(source: I) -> Result<Vec<Self>, ScanError> {
-        let mut parser = Parser::new(BufferedInput::new(source));
-        Self::load_from_parser(&mut parser)
-    }
+    fn load_from_iter<I: Iterator<Item = char>>(source: I) -> Result<Vec<Self>, ScanError>;
 
     /// Load the contents from the specified [`Parser`] as an array of YAML documents.
     ///
@@ -207,7 +204,7 @@ pub trait LoadableYamlNode<'input>: Clone + core::hash::Hash + Eq {
     /// Returns [`ScanError`] when loading fails.
     ///
     /// [`load_from_str`]: LoadableYamlNode::load_from_str
-    fn load_from_parser<I: Input>(parser: &mut Parser<'input, I>) -> Result<Vec<Self>, ScanError> {
+    fn load_from_parser<I: BorrowedInput<'input>>(parser: &mut Parser<'input, I>) -> Result<Vec<Self>, ScanError> {
         let mut loader = YamlLoader::default();
         parser.load(&mut loader, true)?;
         Ok(loader.into_documents())

@@ -11,3 +11,5 @@ fuzz/corpus
 
 # IDEs
 .idea/
+/.clippy*
+

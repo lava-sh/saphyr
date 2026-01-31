@@ -31,6 +31,7 @@
 //!
 //! This feature is _not_ `no_std` compatible.
 
+#![forbid(unsafe_code)]
 #![warn(missing_docs, clippy::pedantic)]
 #![no_std]
 
@@ -47,6 +48,6 @@ pub mod input;
 mod parser;
 mod scanner;
 
-pub use crate::input::{str::StrInput, BufferedInput, Input};
+pub use crate::input::{str::StrInput, BorrowedInput, BufferedInput, Input};
 pub use crate::parser::{Event, EventReceiver, Parser, SpannedEventReceiver, Tag};
 pub use crate::scanner::{Marker, ScalarStyle, ScanError, Span};

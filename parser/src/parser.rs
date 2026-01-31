@@ -5,7 +5,7 @@
 //! YAML objects.
 
 use crate::{
-    input::{str::StrInput, Input},
+    input::{str::StrInput, BorrowedInput},
     scanner::{ScalarStyle, ScanError, Scanner, Span, Token, TokenType},
     BufferedInput, Marker,
 };
@@ -147,7 +147,7 @@ impl<'input> Event<'input> {
 
 /// A YAML parser.
 #[derive(Debug)]
-pub struct Parser<'input, T: Input> {
+pub struct Parser<'input, T: BorrowedInput<'input>> {
     /// The underlying scanner from which we pull tokens.
     scanner: Scanner<'input, T>,
     /// The stack of _previous_ states we were in.
@@ -281,9 +281,9 @@ impl<'input> Parser<'input, StrInput<'input>> {
     }
 }
 
-impl<'input, T> Parser<'input, BufferedInput<T>>
+impl<T> Parser<'static, BufferedInput<T>>
 where
-    T: Iterator<Item = char> + 'input,
+    T: Iterator<Item = char>,
 {
     /// Create a new instance of a parser from an iterator of `char`s.
     #[must_use]
@@ -293,7 +293,7 @@ where
     }
 }
 
-impl<'input, T: Input> Parser<'input, T> {
+impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
     /// Create a new instance of a parser from the given input of characters.
     pub fn new(src: T) -> Self {
         Parser {
@@ -1321,7 +1321,7 @@ impl<'input, T: Input> Parser<'input, T> {
     }
 }
 
-impl<'input, T: Input> Iterator for Parser<'input, T> {
+impl<'input, T: BorrowedInput<'input>> Iterator for Parser<'input, T> {
     type Item = Result<(Event<'input>, Span), ScanError>;
 
     fn next(&mut self) -> Option<Self::Item> {
