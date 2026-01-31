@@ -447,7 +447,7 @@ pub trait Input {
     /// Fetch a chunk of plain scalar characters.
     ///
     /// This optimization method allows the input to batch process characters.
-    /// Returns (stopped, chars_consumed).
+    /// Returns (stopped, `chars_consumed`).
     /// stopped is true if the chunk ended because of a non-plain-scalar character.
     fn fetch_plain_scalar_chunk(&mut self, out: &mut String, count: usize, flow_level_gt_0: bool) -> (bool, usize) {
         let mut chars_consumed = 0;

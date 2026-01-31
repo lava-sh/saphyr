@@ -4,10 +4,10 @@ use saphyr_parser::{Event, Parser, ScalarStyle};
 #[test]
 fn misplaced_closing_bracket_at_col_0() {
     let yaml = "key: [\n]\n";
-    let mut parser = Parser::new_from_str(yaml);
+    let parser = Parser::new_from_str(yaml);
 
     let mut events = Vec::new();
-    while let Some(next) = parser.next() {
+    for next in parser {
         match next {
             Ok((ev, _)) => events.push(ev),
             Err(err) => {
@@ -33,10 +33,10 @@ fn misplaced_closing_bracket_at_col_0() {
 #[test]
 fn misplaced_closing_brace_at_col_0() {
     let yaml = "key: {\n}\n";
-    let mut parser = Parser::new_from_str(yaml);
+    let parser = Parser::new_from_str(yaml);
 
     let mut events = Vec::new();
-    while let Some(next) = parser.next() {
+    for next in parser {
         match next {
             Ok((ev, _)) => events.push(ev),
             Err(err) => {
@@ -62,10 +62,10 @@ fn misplaced_closing_brace_at_col_0() {
 #[test]
 fn misplaced_comma_at_col_0() {
     let yaml = "key: [\n a\n, b\n]\n";
-    let mut parser = Parser::new_from_str(yaml);
+    let parser = Parser::new_from_str(yaml);
 
     let mut events = Vec::new();
-    while let Some(next) = parser.next() {
+    for next in parser {
         match next {
             Ok((ev, _)) => events.push(ev),
             Err(err) => {

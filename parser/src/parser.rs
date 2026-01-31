@@ -843,6 +843,7 @@ impl<'input, T: Input> Parser<'input, T> {
         new_id
     }
 
+    #[allow(clippy::too_many_lines)]
     fn parse_node<'a>(&mut self, block: bool, indentless_sequence: bool) -> ParseResult<'a>
     where
         'input: 'a,

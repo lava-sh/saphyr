@@ -557,8 +557,8 @@ impl<'input, T: Input> Scanner<'input, T> {
     }
 
     #[cold]
-    fn unclosed_bracket(&self, mark: Marker, bracket: char) -> ScanError {
-        ScanError::new(mark, format!("unclosed bracket '{}'", bracket))
+    fn unclosed_bracket(mark: Marker, bracket: char) -> ScanError {
+        ScanError::new(mark, format!("unclosed bracket '{bracket}'"))
     }
 
     /// Consume the next character. It is assumed the next character is a blank.
@@ -1030,7 +1030,7 @@ impl<'input, T: Input> Scanner<'input, T> {
         }
 
         if let Some((mark, bracket)) = self.flow_markers.pop() {
-            return Err(self.unclosed_bracket(mark, bracket));
+            return Err(Self::unclosed_bracket(mark, bracket));
         }
 
         // If the stream ended, we won't have more context. We can stall all the simple keys we
@@ -1657,7 +1657,7 @@ impl<'input, T: Input> Scanner<'input, T> {
 
     fn fetch_document_indicator(&mut self, t: TokenType<'input>) -> ScanResult {
         if let Some((mark, bracket)) = self.flow_markers.pop() {
-            return Err(ScanError::new(mark, format!("unclosed bracket '{}'", bracket)));
+            return Err(ScanError::new(mark, format!("unclosed bracket '{bracket}'")));
         }
 
         self.unroll_indent(-1);
@@ -2719,7 +2719,7 @@ impl<'input, T: Input> Scanner<'input, T> {
     /// An indentation is not added if we are inside a flow level or if the last indent is already
     /// a non-block indent.
     fn roll_one_col_indent(&mut self) {
-        if self.flow_level == 0 && self.indents.last().map_or(false, |x| x.needs_block_end) {
+        if self.flow_level == 0 && self.indents.last().is_some_and(|x| x.needs_block_end) {
             self.indents.push(Indent {
                 indent: self.indent,
                 needs_block_end: false,

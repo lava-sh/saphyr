@@ -1,6 +1,7 @@
 use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
 
+#[allow(clippy::unreachable)]
 #[test]
 fn yaml_xv9v_empty_lines_and_chomping() {
     let yaml = r#"
@@ -11,16 +12,15 @@ fn yaml_xv9v_empty_lines_and_chomping() {
 
 "#;
 
-    let mut parser = Parser::new_from_str(&yaml);
+    let parser = Parser::new_from_str(yaml);
 
-    while let Some(next) = parser.next() {
+    for next in parser {
         match next {
             Ok((Event::DocumentEnd, _)) => {
                 break; // fine
             }
             Err(err) => {
-                assert!(false, "{} reported for valid YAML", err);
-                break;
+                unreachable!("{} reported for valid YAML", err);
             }
             Ok((Event::Scalar(cow, style, size, _tag), span)) => {
                 println!("{:?}|{:?}|{:?}|{:?}", cow, style, size, span);

@@ -5,12 +5,12 @@ use saphyr_parser::{Event, Parser};
 #[test]
 fn misplaced_closing_bracket() {
     let yaml = "---\n[ a, b, c ] ]\n";
-    let mut parser = Parser::new_from_str(yaml);
+    let parser = Parser::new_from_str(yaml);
 
-    while let Some(next) = parser.next() {
+    for next in parser {
         match next {
             Ok((Event::DocumentEnd, _)) => {
-                assert!(false, "Document end before any error");
+                unreachable!("Document end before any error");
             }
             Err(err) => {
                 assert_eq!(err.info(), "misplaced bracket",

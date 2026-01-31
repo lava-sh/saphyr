@@ -386,16 +386,10 @@ impl Input for StrInput<'_> {
     }
 
     fn fetch_while_is_yaml_non_space(&mut self, out: &mut String) -> usize {
-        let mut byte_pos: usize = 0;
-
-        // Skip while we have non-space characters.
-        let mut chars = self.buffer.chars();
-        while let Some(c) = chars.next() {
-            if !crate::char_traits::is_yaml_non_space(c) {
-                break;
-            }
-            byte_pos += c.len_utf8();
-        }
+        let byte_pos = self.buffer.chars()
+            .take_while(|c| crate::char_traits::is_yaml_non_space(*c))
+            .map(char::len_utf8)
+            .sum();
 
         out.push_str(&self.buffer[..byte_pos]);
 
