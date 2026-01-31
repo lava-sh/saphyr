@@ -562,7 +562,118 @@ impl<'input, T: BorrowedInput<'input>> Iterator for Scanner<'input, T> {
 /// A convenience alias for scanner functions that may fail without returning a value.
 pub type ScanResult = Result<(), ScanError>;
 
+#[derive(Debug)]
+enum FlowScalarBuf {
+    /// Candidate for `Cow::Borrowed`.
+    ///
+    /// `start..end` is the committed verbatim range.
+    /// `pending_ws_start..pending_ws_end` is a run of blanks that were seen but not yet
+    /// committed (they must be dropped if followed by a line break).
+    Borrowed {
+        start: usize,
+        end: usize,
+        pending_ws_start: Option<usize>,
+        pending_ws_end: usize,
+    },
+    Owned(String),
+}
+
+impl FlowScalarBuf {
+    #[inline]
+    fn new_borrowed(start: usize) -> Self {
+        Self::Borrowed {
+            start,
+            end: start,
+            pending_ws_start: None,
+            pending_ws_end: start,
+        }
+    }
+
+    #[inline]
+    fn new_owned() -> Self {
+        Self::Owned(String::new())
+    }
+
+    #[inline]
+    fn as_owned_mut(&mut self) -> Option<&mut String> {
+        match self {
+            Self::Owned(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    fn commit_pending_ws(&mut self) {
+        if let Self::Borrowed {
+            end,
+            pending_ws_start,
+            pending_ws_end,
+            ..
+        } = self
+        {
+            if pending_ws_start.is_some() {
+                *end = *pending_ws_end;
+                *pending_ws_start = None;
+            }
+        }
+    }
+
+    #[inline]
+    fn note_pending_ws(&mut self, ws_start: usize, ws_end: usize) {
+        if let Self::Borrowed {
+            pending_ws_start,
+            pending_ws_end,
+            ..
+        } = self
+        {
+            if pending_ws_start.is_none() {
+                *pending_ws_start = Some(ws_start);
+            }
+            *pending_ws_end = ws_end;
+        }
+    }
+
+    #[inline]
+    fn discard_pending_ws(&mut self) {
+        if let Self::Borrowed {
+            pending_ws_start,
+            pending_ws_end,
+            end,
+            ..
+        } = self
+        {
+            *pending_ws_start = None;
+            *pending_ws_end = *end;
+        }
+    }
+}
+
 impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
+    #[inline]
+    fn promote_flow_scalar_buf_to_owned(
+        &self,
+        start_mark: &Marker,
+        buf: &mut FlowScalarBuf,
+    ) -> Result<(), ScanError> {
+        let FlowScalarBuf::Borrowed {
+            start,
+            end,
+            pending_ws_start: _,
+            pending_ws_end: _,
+        } = *buf
+        else {
+            return Ok(());
+        };
+
+        let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+            ScanError::new_str(
+                *start_mark,
+                "internal error: input advertised offsets but did not provide a slice",
+            )
+        })?;
+        *buf = FlowScalarBuf::Owned(slice.to_owned());
+        Ok(())
+    }
     /// Try to borrow a slice from the underlying input.
     ///
     /// This method uses the [`BorrowedInput`] trait to safely obtain a slice with the `'input`
@@ -2273,7 +2384,10 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         let start_mark = self.mark;
 
         // Output scalar contents.
-        let mut string = String::new();
+        let mut buf = match self.input.byte_offset() {
+            Some(off) => FlowScalarBuf::new_borrowed(off + self.input.peek().len_utf8()),
+            None => FlowScalarBuf::new_owned(),
+        };
 
         // Scratch used to consume the *first* line break in a break run without emitting it.
         // (The first break folds to ' ' or to nothing depending on escaping rules.)
@@ -2302,7 +2416,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             let mut leading_blanks = false;
             self.consume_flow_scalar_non_whitespace_chars(
                 single,
-                &mut string,
+                &mut buf,
                 &mut leading_blanks,
                 &start_mark,
             )?;
@@ -2332,6 +2446,9 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             let mut has_leading_break = false;
             let mut has_trailing_breaks = false;
 
+            // For the borrowed path: track the (byte) start of a pending whitespace run.
+            let mut pending_ws_start: Option<usize> = None;
+
             // Consume blank characters.
             while self.input.next_is_blank() || self.input.next_is_break() {
                 if self.input.next_is_blank() {
@@ -2346,11 +2463,26 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                         self.skip_blank();
                     } else {
                         // Append to output immediately; if a break appears next, we'll truncate.
-                        if trailing_ws_start.is_none() {
-                            trailing_ws_start = Some(string.len());
+                        match buf {
+                            FlowScalarBuf::Owned(ref mut string) => {
+                                if trailing_ws_start.is_none() {
+                                    trailing_ws_start = Some(string.len());
+                                }
+                                string.push(self.input.peek());
+                            }
+                            FlowScalarBuf::Borrowed { .. } => {
+                                if pending_ws_start.is_none() {
+                                    pending_ws_start = self.input.byte_offset();
+                                }
+                            }
                         }
-                        string.push(self.input.peek());
                         self.skip_blank();
+
+                        if let (FlowScalarBuf::Borrowed { .. }, Some(ws_start), Some(ws_end)) =
+                            (&mut buf, pending_ws_start, self.input.byte_offset())
+                        {
+                            buf.note_pending_ws(ws_start, ws_end);
+                        }
                     }
                 } else {
                     self.input.lookahead(2);
@@ -2358,12 +2490,31 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                     // Check if it is a first line break.
                     if leading_blanks {
                         // Second+ line break in a run: preserve it.
-                        self.read_break(&mut string);
+                        match buf {
+                            FlowScalarBuf::Owned(ref mut string) => self.read_break(string),
+                            FlowScalarBuf::Borrowed { .. } => {
+                                self.promote_flow_scalar_buf_to_owned(&start_mark, &mut buf)?;
+                                let Some(string) = buf.as_owned_mut() else { unreachable!() };
+                                self.read_break(string);
+                            }
+                        }
                         has_trailing_breaks = true;
                     } else {
                         // First break: drop any trailing blanks we appended, then consume the break.
                         if let Some(pos) = trailing_ws_start.take() {
-                            string.truncate(pos);
+                            if let FlowScalarBuf::Owned(ref mut string) = buf {
+                                string.truncate(pos);
+                            }
+                        }
+
+                        if pending_ws_start.take().is_some() {
+                            // Trailing blanks before a break are discarded => transformation.
+                            if matches!(buf, FlowScalarBuf::Borrowed { .. }) {
+                                self.promote_flow_scalar_buf_to_owned(&start_mark, &mut buf)?;
+                            }
+                            buf.discard_pending_ws();
+                        } else {
+                            buf.commit_pending_ws();
                         }
 
                         break_scratch.clear();
@@ -2398,7 +2549,14 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 //   else if trailing_breaks empty => emit ' '
                 //   else emit trailing_breaks (already emitted now)
                 if has_leading_break && !has_trailing_breaks {
-                    string.push(' ');
+                    match buf {
+                        FlowScalarBuf::Owned(ref mut string) => string.push(' '),
+                        FlowScalarBuf::Borrowed { .. } => {
+                            self.promote_flow_scalar_buf_to_owned(&start_mark, &mut buf)?;
+                            let Some(string) = buf.as_owned_mut() else { unreachable!() };
+                            string.push(' ');
+                        }
+                    }
                 }
             }
             // else: trailing blanks are already appended to `string`
@@ -2433,9 +2591,36 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             ScalarStyle::DoubleQuoted
         };
 
+        let contents = match buf {
+            FlowScalarBuf::Owned(string) => Cow::Owned(string),
+            FlowScalarBuf::Borrowed {
+                start,
+                mut end,
+                pending_ws_start,
+                pending_ws_end,
+            } => {
+                // If we ended after a whitespace run, it is part of the output (no break followed).
+                if pending_ws_start.is_some() {
+                    end = pending_ws_end;
+                }
+                match self.try_borrow_slice(start, end) {
+                    Some(slice) => Cow::Borrowed(slice),
+                    None => {
+                        let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                            ScanError::new_str(
+                                start_mark,
+                                "internal error: input advertised offsets but did not provide a slice",
+                            )
+                        })?;
+                        Cow::Owned(slice.to_owned())
+                    }
+                }
+            }
+        };
+
         Ok(Token(
             Span::new(start_mark, self.mark),
-            TokenType::Scalar(style, string.into()),
+            TokenType::Scalar(style, contents),
         ))
     }
 
@@ -2450,7 +2635,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
     fn consume_flow_scalar_non_whitespace_chars(
         &mut self,
         single: bool,
-        string: &mut String,
+        buf: &mut FlowScalarBuf,
         leading_blanks: &mut bool,
         start_mark: &Marker,
     ) -> Result<(), ScanError> {
@@ -2459,6 +2644,11 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             match self.input.peek() {
                 // Check for an escaped single quote.
                 '\'' if self.input.peek_nth(1) == '\'' && single => {
+                    if matches!(buf, FlowScalarBuf::Borrowed { .. }) {
+                        buf.commit_pending_ws();
+                        self.promote_flow_scalar_buf_to_owned(start_mark, buf)?;
+                    }
+                    let Some(string) = buf.as_owned_mut() else { unreachable!() };
                     string.push('\'');
                     self.skip_n_non_blank(2);
                 }
@@ -2468,6 +2658,10 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 // Check for an escaped line break.
                 '\\' if !single && is_break(self.input.peek_nth(1)) => {
                     self.input.lookahead(3);
+                    if matches!(buf, FlowScalarBuf::Borrowed { .. }) {
+                        buf.commit_pending_ws();
+                        self.promote_flow_scalar_buf_to_owned(start_mark, buf)?;
+                    }
                     self.skip_non_blank();
                     self.skip_linebreak();
                     *leading_blanks = true;
@@ -2475,11 +2669,29 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 }
                 // Check for an escape sequence.
                 '\\' if !single => {
+                    if matches!(buf, FlowScalarBuf::Borrowed { .. }) {
+                        buf.commit_pending_ws();
+                        self.promote_flow_scalar_buf_to_owned(start_mark, buf)?;
+                    }
+                    let Some(string) = buf.as_owned_mut() else { unreachable!() };
                     string.push(self.resolve_flow_scalar_escape_sequence(start_mark)?);
                 }
                 c => {
-                    string.push(c);
+                    match buf {
+                        FlowScalarBuf::Owned(ref mut string) => {
+                            string.push(c);
+                        }
+                        FlowScalarBuf::Borrowed { .. } => {
+                            buf.commit_pending_ws();
+                        }
+                    }
                     self.skip_non_blank();
+
+                    if let Some(new_end) = self.input.byte_offset() {
+                        if let FlowScalarBuf::Borrowed { end, .. } = buf {
+                            *end = new_end;
+                        }
+                    }
                 }
             }
             self.input.lookahead(2);
@@ -3156,6 +3368,72 @@ mod test {
                 .expect("scanner must eventually produce a token");
             if let TokenType::Scalar(_, value) = tok.1 {
                 assert!(matches!(value, Cow::Borrowed("foo bar")));
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn single_quoted_scalar_is_borrowed_when_verbatim_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("'foo bar'\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Scalar(_, value) = tok.1 {
+                assert!(matches!(value, Cow::Borrowed("foo bar")));
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn single_quoted_scalar_is_owned_when_quote_is_escaped_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("'foo''bar'\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Scalar(_, value) = tok.1 {
+                assert!(matches!(value, Cow::Owned(_)));
+                assert_eq!(&*value, "foo'bar");
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn double_quoted_scalar_is_borrowed_when_verbatim_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("\"foo bar\"\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Scalar(_, value) = tok.1 {
+                assert!(matches!(value, Cow::Borrowed("foo bar")));
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn double_quoted_scalar_is_owned_when_escape_sequence_present_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("\"foo\\nbar\"\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Scalar(_, value) = tok.1 {
+                assert!(matches!(value, Cow::Owned(_)));
+                assert_eq!(&*value, "foo\nbar");
                 break;
             }
         }
