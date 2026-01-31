@@ -2728,9 +2728,20 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 "unexpected end of plain scalar",
             ))
         } else {
+            let contents = if let (Some(start), Some(end)) =
+                (start_mark.byte_offset(), end_mark.byte_offset())
+            {
+                match self.try_borrow_slice(start, end) {
+                    Some(slice) if slice == string => Cow::Borrowed(slice),
+                    _ => Cow::Owned(string),
+                }
+            } else {
+                Cow::Owned(string)
+            };
+
             Ok(Token(
                 Span::new(start_mark, end_mark),
-                TokenType::Scalar(ScalarStyle::Plain, string.into()),
+                TokenType::Scalar(ScalarStyle::Plain, contents),
             ))
         }
     }
@@ -3113,6 +3124,38 @@ mod test {
             if let TokenType::TagDirective(handle, prefix) = tok.1 {
                 assert!(matches!(handle, Cow::Borrowed("!e!")));
                 assert!(matches!(prefix, Cow::Borrowed("tag:example.com,2000:app/")));
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn plain_scalar_is_borrowed_when_whitespace_free_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("foo\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Scalar(_, value) = tok.1 {
+                assert!(matches!(value, Cow::Borrowed("foo")));
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn plain_scalar_is_borrowed_when_whitespace_present_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("foo bar\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Scalar(_, value) = tok.1 {
+                assert!(matches!(value, Cow::Borrowed("foo bar")));
                 break;
             }
         }
