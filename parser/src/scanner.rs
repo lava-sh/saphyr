@@ -182,6 +182,14 @@ impl Span {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Return the byte range of the span, if available.
+    #[must_use]
+    pub fn byte_range(&self) -> Option<core::ops::Range<usize>> {
+        let start = self.start.byte_offset()?;
+        let end = self.end.byte_offset()?;
+        Some(start..end)
+    }
 }
 
 /// An error that occurred while scanning.

@@ -56,13 +56,12 @@ fn walk(contents: &str, yaml: &MarkedYaml<'_>) {
 }
 
 fn print(contents: String, yaml: &MarkedYaml<'_>) {
-    let pos = yaml.span.start.index();
-    let len = yaml.span.len();
+    let range = yaml.span.byte_range().expect("byte offsets not available");
     eprintln!(
         "{:?}",
         miette::Error::new(FakeErr {
             src: NamedSource::new("<input>", contents),
-            span: (pos, len).into(),
+            span: range.into(),
         })
     );
 }
