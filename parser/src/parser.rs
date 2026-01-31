@@ -1270,9 +1270,10 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
     fn resolve_tag(
         &self,
         span: Span,
-        handle: &str,
-        suffix: String,
+        handle: &Cow<'input, str>,
+        suffix: Cow<'input, str>,
     ) -> Result<Cow<'input, Tag>, ScanError> {
+        let suffix = suffix.into_owned();
         let tag = if handle == "!!" {
             // "!!" is a shorthand for "tag:yaml.org,2002:". However, that default can be
             // overridden.
@@ -1297,7 +1298,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             }
         } else {
             // Lookup handle in our tag directives.
-            let prefix = self.tags.get(handle);
+            let prefix = self.tags.get(&**handle);
             if let Some(prefix) = prefix {
                 Tag {
                     handle: prefix.clone(),

@@ -289,9 +289,9 @@ pub enum TokenType<'input> {
     /// A YAML tag (starting with bangs `!`).
     Tag(
         /// The handle of the tag.
-        String,
+        Cow<'input, str>,
         /// The suffix of the tag.
-        String,
+        Cow<'input, str>,
     ),
     /// A regular YAML scalar.
     Scalar(ScalarStyle, Cow<'input, str>),
@@ -1541,25 +1541,97 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
 
     fn scan_tag(&mut self) -> Result<Token<'input>, ScanError> {
         let start_mark = self.mark;
-        let mut handle = String::new();
-        let mut suffix;
 
         // Check if the tag is in the canonical form (verbatim).
         self.input.lookahead(2);
 
-        if self.input.nth_char_is(1, '<') {
-            suffix = self.scan_verbatim_tag(&start_mark)?;
+        // If byte_offset is not available, use the original owned-only path.
+        if self.input.byte_offset().is_none() {
+            return self.scan_tag_owned(&start_mark);
+        }
+
+        let (handle, suffix): (Cow<'input, str>, Cow<'input, str>) = if self.input.nth_char_is(1, '<') {
+            // Verbatim tags always need owned strings (URI escapes).
+            let suffix = self.scan_verbatim_tag(&start_mark)?;
+            (Cow::Owned(String::new()), Cow::Owned(suffix))
         } else {
             // The tag has either the '!suffix' or the '!handle!suffix'
-            handle = self.scan_tag_handle(false, &start_mark)?;
+            let handle = self.scan_tag_handle_cow(&start_mark)?;
+            // Check if it is, indeed, handle.
+            if handle.len() >= 2 && handle.starts_with('!') && handle.ends_with('!') {
+                // A tag handle starting with "!!" is a secondary tag handle.
+                let suffix = self.scan_tag_shorthand_suffix_cow(&start_mark)?;
+                (handle, suffix)
+            } else {
+                // Not a real handle, it's part of the suffix.
+                // E.g., "!foo" -> handle="!", suffix="foo"
+                // The "handle" we scanned is actually "!" + suffix_part1.
+                // We need to also scan any remaining suffix characters.
+                let remaining_suffix = self.scan_tag_shorthand_suffix_cow(&start_mark)?;
+                
+                // Extract suffix from handle (skip leading '!') and combine with remaining.
+                let suffix = if handle.len() > 1 {
+                    if remaining_suffix.is_empty() {
+                        // The suffix is just what's in handle after '!'
+                        match handle {
+                            Cow::Borrowed(s) => Cow::Borrowed(&s[1..]),
+                            Cow::Owned(s) => Cow::Owned(s[1..].to_owned()),
+                        }
+                    } else {
+                        // Combine handle (minus leading '!') with remaining suffix.
+                        let mut combined = handle[1..].to_owned();
+                        combined.push_str(&remaining_suffix);
+                        Cow::Owned(combined)
+                    }
+                } else {
+                    // handle is just "!", suffix is whatever we scanned after
+                    remaining_suffix
+                };
+                
+                // A special case: the '!' tag.  Set the handle to '' and the
+                // suffix to '!'.
+                if suffix.is_empty() {
+                    (Cow::Borrowed(""), Cow::Borrowed("!"))
+                } else {
+                    (Cow::Borrowed("!"), suffix)
+                }
+            }
+        };
+
+        if is_blank_or_breakz(self.input.look_ch())
+            || (self.flow_level > 0 && self.input.next_is_flow())
+        {
+            // XXX: ex 7.2, an empty scalar can follow a secondary tag
+            Ok(Token(
+                Span::new(start_mark, self.mark),
+                TokenType::Tag(handle, suffix),
+            ))
+        } else {
+            Err(ScanError::new_str(
+                start_mark,
+                "while scanning a tag, did not find expected whitespace or line break",
+            ))
+        }
+    }
+
+    /// Original owned-only tag scanning path for inputs without byte_offset support.
+    fn scan_tag_owned(&mut self, start_mark: &Marker) -> Result<Token<'input>, ScanError> {
+        let mut handle = String::new();
+        let mut suffix;
+
+        if self.input.nth_char_is(1, '<') {
+            suffix = self.scan_verbatim_tag(start_mark)?;
+        } else {
+            // The tag has either the '!suffix' or the '!handle!suffix'
+            handle = self.scan_tag_handle(false, start_mark)?;
             // Check if it is, indeed, handle.
             if handle.len() >= 2 && handle.starts_with('!') && handle.ends_with('!') {
                 // A tag handle starting with "!!" is a secondary tag handle.
                 let is_secondary_handle = handle == "!!";
                 suffix =
-                    self.scan_tag_shorthand_suffix(false, is_secondary_handle, "", &start_mark)?;
+                    self.scan_tag_shorthand_suffix(false, is_secondary_handle, "", start_mark)?;
             } else {
-                suffix = self.scan_tag_shorthand_suffix(false, false, &handle, &start_mark)?;
+                suffix = self.scan_tag_shorthand_suffix(false, false, &handle, start_mark)?;
                 "!".clone_into(&mut handle);
                 // A special case: the '!' tag.  Set the handle to '' and the
                 // suffix to '!'.
@@ -1575,14 +1647,118 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         {
             // XXX: ex 7.2, an empty scalar can follow a secondary tag
             Ok(Token(
-                Span::new(start_mark, self.mark),
-                TokenType::Tag(handle, suffix),
+                Span::new(*start_mark, self.mark),
+                TokenType::Tag(handle.into(), suffix.into()),
             ))
         } else {
             Err(ScanError::new_str(
-                start_mark,
+                *start_mark,
                 "while scanning a tag, did not find expected whitespace or line break",
             ))
+        }
+    }
+
+    /// Scan a tag handle as a `Cow<str>`, borrowing when possible.
+    ///
+    /// Tag handles are of the form `!`, `!!`, or `!name!` where name is ASCII alphanumeric.
+    /// Since they contain no escape sequences, they can always be borrowed from `StrInput`.
+    fn scan_tag_handle_cow(&mut self, mark: &Marker) -> Result<Cow<'input, str>, ScanError> {
+        let Some(start) = self.input.byte_offset() else {
+            return Ok(Cow::Owned(self.scan_tag_handle(false, mark)?));
+        };
+
+        if self.input.look_ch() != '!' {
+            return Err(ScanError::new_str(
+                *mark,
+                "while scanning a tag, did not find expected '!'",
+            ));
+        }
+
+        // Consume the leading '!'.
+        self.skip_non_blank();
+
+        // Consume ns-word-char (ASCII alphanumeric, '_' or '-') characters.
+        self.input.lookahead(1);
+        while self.input.next_is_alpha() {
+            self.skip_non_blank();
+            self.input.lookahead(1);
+        }
+
+        // Optional trailing '!'.
+        if self.input.peek() == '!' {
+            self.skip_non_blank();
+        }
+
+        let Some(end) = self.input.byte_offset() else {
+            return Ok(Cow::Owned(self.scan_tag_handle(false, mark)?));
+        };
+
+        match self.try_borrow_slice(start, end) {
+            Some(slice) => Ok(Cow::Borrowed(slice)),
+            None => {
+                let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                    ScanError::new_str(
+                        *mark,
+                        "internal error: input advertised slicing but did not provide a slice",
+                    )
+                })?;
+                Ok(Cow::Owned(slice.to_owned()))
+            }
+        }
+    }
+
+    /// Scan a tag shorthand suffix as a `Cow<str>`, borrowing when possible.
+    ///
+    /// The suffix can be borrowed only if no `%` URI escape sequences are present.
+    fn scan_tag_shorthand_suffix_cow(
+        &mut self,
+        mark: &Marker,
+    ) -> Result<Cow<'input, str>, ScanError> {
+        let Some(start) = self.input.byte_offset() else {
+            return Ok(Cow::Owned(self.scan_tag_shorthand_suffix(false, false, "", mark)?));
+        };
+
+        // Scan tag characters, checking for URI escapes.
+        while is_tag_char(self.input.look_ch()) {
+            if self.input.peek() == '%' {
+                // URI escape found - must decode, so fall back to owned path.
+                let current = self.input.byte_offset()
+                    .expect("byte_offset() must remain available once enabled");
+                let mut out = if let Some(slice) = self.input.slice_bytes(start, current) {
+                    slice.to_owned()
+                } else {
+                    String::new()
+                };
+
+                // Continue scanning with owned buffer.
+                while is_tag_char(self.input.look_ch()) {
+                    if self.input.peek() == '%' {
+                        out.push(self.scan_uri_escapes(mark)?);
+                    } else {
+                        out.push(self.input.peek());
+                        self.skip_non_blank();
+                    }
+                }
+                return Ok(Cow::Owned(out));
+            }
+            self.skip_non_blank();
+        }
+
+        let Some(end) = self.input.byte_offset() else {
+            return Ok(Cow::Owned(self.scan_tag_shorthand_suffix(false, false, "", mark)?));
+        };
+
+        match self.try_borrow_slice(start, end) {
+            Some(slice) => Ok(Cow::Borrowed(slice)),
+            None => {
+                let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                    ScanError::new_str(
+                        *mark,
+                        "internal error: input advertised slicing but did not provide a slice",
+                    )
+                })?;
+                Ok(Cow::Owned(slice.to_owned()))
+            }
         }
     }
 
@@ -3434,6 +3610,150 @@ mod test {
             if let TokenType::Scalar(_, value) = tok.1 {
                 assert!(matches!(value, Cow::Owned(_)));
                 assert_eq!(&*value, "foo\nbar");
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn plain_key_is_borrowed_for_str_input() {
+        // Keys are just scalars in a key position; they should also be borrowed.
+        let mut scanner = Scanner::new(StrInput::new("mykey: value\n"));
+
+        let mut found_key = false;
+        let mut key_value: Option<Cow<'_, str>> = None;
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors");
+            let Some(tok) = tok else { break };
+
+            if matches!(tok.1, TokenType::Key) {
+                found_key = true;
+            } else if found_key {
+                if let TokenType::Scalar(_, value) = tok.1 {
+                    key_value = Some(value);
+                    break;
+                }
+            }
+        }
+
+        assert!(found_key, "expected to find a Key token");
+        let key_value = key_value.expect("expected to find a scalar after Key token");
+        assert!(
+            matches!(key_value, Cow::Borrowed("mykey")),
+            "key should be borrowed, got: {:?}",
+            key_value
+        );
+    }
+
+    #[test]
+    fn quoted_key_is_borrowed_when_verbatim_for_str_input() {
+        let mut scanner = Scanner::new(StrInput::new("\"mykey\": value\n"));
+
+        let mut found_key = false;
+        let mut key_value: Option<Cow<'_, str>> = None;
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors");
+            let Some(tok) = tok else { break };
+
+            if matches!(tok.1, TokenType::Key) {
+                found_key = true;
+            } else if found_key {
+                if let TokenType::Scalar(_, value) = tok.1 {
+                    key_value = Some(value);
+                    break;
+                }
+            }
+        }
+
+        assert!(found_key, "expected to find a Key token");
+        let key_value = key_value.expect("expected to find a scalar after Key token");
+        assert!(
+            matches!(key_value, Cow::Borrowed("mykey")),
+            "quoted key should be borrowed when verbatim, got: {:?}",
+            key_value
+        );
+    }
+
+    #[test]
+    fn tag_handle_and_suffix_are_borrowed_for_str_input() {
+        // Test a tag like !!str which should have handle="!!" and suffix="str"
+        let mut scanner = Scanner::new(StrInput::new("!!str foo\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Tag(handle, suffix) = tok.1 {
+                assert!(
+                    matches!(handle, Cow::Borrowed("!!")),
+                    "tag handle should be borrowed, got: {:?}",
+                    handle
+                );
+                assert!(
+                    matches!(suffix, Cow::Borrowed("str")),
+                    "tag suffix should be borrowed, got: {:?}",
+                    suffix
+                );
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn local_tag_suffix_is_borrowed_for_str_input() {
+        // Test a local tag like !mytag which should have handle="!" and suffix="mytag"
+        let mut scanner = Scanner::new(StrInput::new("!mytag foo\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Tag(handle, suffix) = tok.1 {
+                assert!(
+                    matches!(handle, Cow::Borrowed("!")),
+                    "local tag handle should be '!', got: {:?}",
+                    handle
+                );
+                assert!(
+                    matches!(suffix, Cow::Borrowed("mytag")),
+                    "local tag suffix should be borrowed, got: {:?}",
+                    suffix
+                );
+                break;
+            }
+        }
+    }
+
+    #[test]
+    fn tag_with_uri_escape_is_owned_for_str_input() {
+        // Test a tag with URI escape like !my%20tag - suffix must be owned due to decoding
+        let mut scanner = Scanner::new(StrInput::new("!!my%20tag foo\n"));
+
+        loop {
+            let tok = scanner
+                .next_token()
+                .expect("valid YAML must scan without errors")
+                .expect("scanner must eventually produce a token");
+            if let TokenType::Tag(handle, suffix) = tok.1 {
+                assert!(
+                    matches!(handle, Cow::Borrowed("!!")),
+                    "tag handle should still be borrowed, got: {:?}",
+                    handle
+                );
+                assert!(
+                    matches!(suffix, Cow::Owned(_)),
+                    "tag suffix with URI escape should be owned, got: {:?}",
+                    suffix
+                );
+                assert_eq!(&*suffix, "my tag");
                 break;
             }
         }
