@@ -70,7 +70,7 @@ When bracket (`[`,`{`) or quote lacks the matching closing bracket, unpatched `0
 ## Zero-copy parsing optimization
 The parser now supports zero-copy parsing when the input is provided as a string (`&str`).
 This is achieved via the `BorrowedInput` trait and using `Cow<'input, str>` in `TokenType`.
-When parsing from a string, tokens like scalars, anchors, and tag directives borrow directly from the input string instead of allocating new `String`s, significantly reducing memory allocations and improving performance.
+When parsing from a string, tokens like scalars, anchors, and tag directives borrow directly from the input string instead of allocating new `String`s, significantly reducing memory allocations and improving performance. This is quite heavy change but helped with performance dramatically.
 Streaming inputs continue to work as before, owning their data.
 
 # saphyr-parser
