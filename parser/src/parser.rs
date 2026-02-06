@@ -216,7 +216,7 @@ pub struct Parser<'input, T: BorrowedInput<'input>> {
 ///   - g
 ///   - h
 /// ```
-/// will emit (indented and commented for lisibility):
+/// will emit (indented and commented for visibility):
 /// ```text
 /// StreamStart, DocumentStart, MappingStart,
 ///   Scalar("a", ..), Scalar("b", ..)
@@ -271,6 +271,22 @@ impl<'input, R: EventReceiver<'input>> SpannedEventReceiver<'input> for R {
 
 /// A convenience alias for a `Result` of a parser event.
 pub type ParseResult<'input> = Result<(Event<'input>, Span), ScanError>;
+
+/// Trait extracted from `Parser` to support mocking and alternative implementations.
+pub trait ParserTrait<'input> {
+    /// Try to load the next event and return it, but do not consuming it from `self`.
+    fn peek(&mut self) -> Option<Result<&(Event<'input>, Span), ScanError>>;
+
+    /// Try to load the next event and return it, consuming it from `self`.
+    fn next_event(&mut self) -> Option<ParseResult<'input>>;
+
+    /// Load the YAML from the stream in `self`, pushing events into `recv`.
+    fn load<R: SpannedEventReceiver<'input>>(
+        &mut self,
+        recv: &mut R,
+        multi: bool,
+    ) -> Result<(), ScanError>;
+}
 
 impl<'input> Parser<'input, StrInput<'input>> {
     /// Create a new instance of a parser from a &str.
@@ -348,18 +364,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
     /// # Errors
     /// Returns `ScanError` when loading the next event fails.
     pub fn peek(&mut self) -> Option<Result<&(Event<'input>, Span), ScanError>> {
-        if let Some(ref x) = self.current {
-            Some(Ok(x))
-        } else {
-            if self.stream_end_emitted {
-                return None;
-            }
-            match self.next_event_impl() {
-                Ok(token) => self.current = Some(token),
-                Err(e) => return Some(Err(e)),
-            }
-            self.current.as_ref().map(Ok)
-        }
+        ParserTrait::peek(self)
     }
 
     /// Try to load the next event and return it, consuming it from `self`.
@@ -367,15 +372,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
     /// # Errors
     /// Returns `ScanError` when loading the next event fails.
     pub fn next_event(&mut self) -> Option<ParseResult<'input>> {
-        if self.stream_end_emitted {
-            return None;
-        }
-
-        let tok = self.next_event_impl();
-        if matches!(tok, Ok((Event::StreamEnd, _))) {
-            self.stream_end_emitted = true;
-        }
-        Some(tok)
+        ParserTrait::next_event(self)
     }
 
     /// Implementation function for [`Self::next_event`] without the `Option`.
@@ -494,36 +491,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
         recv: &mut R,
         multi: bool,
     ) -> Result<(), ScanError> {
-        if !self.scanner.stream_started() {
-            let (ev, span) = self.next_event_impl()?;
-            if ev != Event::StreamStart {
-                return Err(ScanError::new_str(
-                    span.start,
-                    "did not find expected <stream-start>",
-                ));
-            }
-            recv.on_event(ev, span);
-        }
-
-        if self.scanner.stream_ended() {
-            // XXX has parsed?
-            recv.on_event(Event::StreamEnd, Span::empty(self.scanner.mark()));
-            return Ok(());
-        }
-        loop {
-            let (ev, span) = self.next_event_impl()?;
-            if ev == Event::StreamEnd {
-                recv.on_event(ev, span);
-                return Ok(());
-            }
-            // clear anchors before a new document
-            self.anchors.clear();
-            self.load_document(ev, span, recv)?;
-            if !multi {
-                break;
-            }
-        }
-        Ok(())
+        ParserTrait::load(self, recv, multi)
     }
 
     fn load_document<R: SpannedEventReceiver<'input>>(
@@ -1319,6 +1287,72 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             }
         };
         Ok(Cow::Owned(tag))
+    }
+}
+
+impl<'input, T: BorrowedInput<'input>> ParserTrait<'input> for Parser<'input, T> {
+    fn peek(&mut self) -> Option<Result<&(Event<'input>, Span), ScanError>> {
+        if let Some(ref x) = self.current {
+            Some(Ok(x))
+        } else {
+            if self.stream_end_emitted {
+                return None;
+            }
+            match self.next_event_impl() {
+                Ok(token) => self.current = Some(token),
+                Err(e) => return Some(Err(e)),
+            }
+            self.current.as_ref().map(Ok)
+        }
+    }
+
+    fn next_event(&mut self) -> Option<ParseResult<'input>> {
+        if self.stream_end_emitted {
+            return None;
+        }
+
+        let tok = self.next_event_impl();
+        if matches!(tok, Ok((Event::StreamEnd, _))) {
+            self.stream_end_emitted = true;
+        }
+        Some(tok)
+    }
+
+    fn load<R: SpannedEventReceiver<'input>>(
+        &mut self,
+        recv: &mut R,
+        multi: bool,
+    ) -> Result<(), ScanError> {
+        if !self.scanner.stream_started() {
+            let (ev, span) = self.next_event_impl()?;
+            if ev != Event::StreamStart {
+                return Err(ScanError::new_str(
+                    span.start,
+                    "did not find expected <stream-start>",
+                ));
+            }
+            recv.on_event(ev, span);
+        }
+
+        if self.scanner.stream_ended() {
+            // XXX has parsed?
+            recv.on_event(Event::StreamEnd, Span::empty(self.scanner.mark()));
+            return Ok(());
+        }
+        loop {
+            let (ev, span) = self.next_event_impl()?;
+            if ev == Event::StreamEnd {
+                recv.on_event(ev, span);
+                return Ok(());
+            }
+            // clear anchors before a new document
+            self.anchors.clear();
+            self.load_document(ev, span, recv)?;
+            if !multi {
+                break;
+            }
+        }
+        Ok(())
     }
 }
 
