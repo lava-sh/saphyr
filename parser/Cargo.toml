@@ -20,7 +20,7 @@ repository = "https://github.com/bourumir-wyngs/saphyr"
 
 # !!!important!!! branch = "dev/saphyr-parser", subdir = "parser". Master branch is just in sync with "https://github.com/saphyr-rs/saphyr"
 rust-version = { workspace = true }
-version = "0.0.607" # 0.0.6 + path. Keeping 0.0.6 as basic compatibility.
+version = "0.0.608" # 0.0.6 + path. Keeping 0.0.6 as basic compatibility.
 exclude = [
   # Exclude the `yaml-test-suite` from the package. This removes the need to
   # add its license to the package.
