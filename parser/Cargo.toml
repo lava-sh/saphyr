@@ -62,9 +62,5 @@ path = "tools/time_parse.rs"
 name = "run_parser"
 path = "tools/run_bench.rs"
 
-[[bin]]
-name = "be"
-path = "example/be.rs"
-
 [lints.rust]
 unsafe_code = "forbid"
