@@ -54,7 +54,11 @@ pub fn is_digit(c: char) -> bool {
 #[inline]
 #[must_use]
 pub fn is_alpha(c: char) -> bool {
-    matches!(c, '0'..='9' | 'a'..='z' | 'A'..='Z' | '_' | '-')
+    if !c.is_ascii() {
+        return false;
+    }
+    let b = c as u8;
+    b.is_ascii_digit() || b.is_ascii_uppercase() || b == b'_' || b == b'-'
 }
 
 /// Check whether the character is a hexadecimal character (case insensitive).
@@ -68,11 +72,11 @@ pub fn is_hex(c: char) -> bool {
 #[inline]
 #[must_use]
 pub fn as_hex(c: char) -> u32 {
-    match c {
-        '0'..='9' => (c as u32) - ('0' as u32),
-        'a'..='f' => (c as u32) - ('a' as u32) + 10,
-        'A'..='F' => (c as u32) - ('A' as u32) + 10,
-        _ => unreachable!(),
+    let bytes = c as u32;
+    if bytes <= '9' as u32 {
+        bytes - '0' as u32
+    } else {
+        ((bytes | 0x20) - 'a' as u32) + 10
     }
 }
 
@@ -119,6 +123,7 @@ pub fn is_anchor_char(c: char) -> bool {
 /// Matches: `[0-9a-zA-Z-]`
 #[inline]
 #[must_use]
+#[allow(dead_code)]
 pub fn is_word_char(c: char) -> bool {
     is_alpha(c) && c != '_'
 }
@@ -127,7 +132,36 @@ pub fn is_word_char(c: char) -> bool {
 #[inline]
 #[must_use]
 pub fn is_uri_char(c: char) -> bool {
-    is_word_char(c) || "#;/?:@&=+$,_.!~*\'()[]%".contains(c)
+    if !c.is_ascii() {
+        return false;
+    }
+    if is_alpha(c) {
+        return true;
+    }
+    let b = c as u8;
+    matches!(
+        b,
+        b'#' | b';'
+            | b'/'
+            | b'?'
+            | b':'
+            | b'@'
+            | b'&'
+            | b'='
+            | b'+'
+            | b'$'
+            | b','
+            | b'.'
+            | b'!'
+            | b'~'
+            | b'*'
+            | b'\''
+            | b'('
+            | b')'
+            | b'['
+            | b']'
+            | b'%'
+    )
 }
 
 /// Check whether the character is a valid tag character.

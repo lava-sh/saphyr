@@ -1,7 +1,7 @@
 #![allow(clippy::bool_assert_comparison)]
 #![allow(clippy::float_cmp)]
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScanError};
+use saphyr_parser_bw as saphyr_parser;
 
 fn char_index_to_byte_index(s: &str, char_index: usize) -> usize {
     if char_index == 0 {
@@ -13,7 +13,11 @@ fn char_index_to_byte_index(s: &str, char_index: usize) -> usize {
         .unwrap_or_else(|| s.len())
 }
 
-fn span_offsets(input: &str, start: saphyr_parser::Marker, end: saphyr_parser::Marker) -> (usize, usize) {
+fn span_offsets(
+    input: &str,
+    start: saphyr_parser::Marker,
+    end: saphyr_parser::Marker,
+) -> (usize, usize) {
     let start_b = start
         .byte_offset()
         .unwrap_or_else(|| char_index_to_byte_index(input, start.index()));
@@ -161,10 +165,18 @@ fn test_literal_utf8() {
         [("foo", "foo"), ("\u{4F60}\u{5273}\n", "\u{4F60}\u{5273}"),]
     );
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("foo: |\n  one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}").unwrap()),
+        deref_pairs(
+            &run_parser_and_deref_scalar_spans(
+                "foo: |\n  one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}"
+            )
+            .unwrap()
+        ),
         [
             ("foo", "foo"),
-            ("one:\u{4F60}\u{5273}\ntwo:\u{4F60}\u{5273}\n", "one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}"),
+            (
+                "one:\u{4F60}\u{5273}\ntwo:\u{4F60}\u{5273}\n",
+                "one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}"
+            ),
         ]
     );
 }
@@ -176,10 +188,18 @@ fn test_block_utf8() {
         [("foo", "foo"), ("\u{4F60}\u{5273}\n", "\u{4F60}\u{5273}")],
     );
     assert_eq!(
-        deref_pairs(&run_parser_and_deref_scalar_spans("foo: >\n  one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}").unwrap()),
+        deref_pairs(
+            &run_parser_and_deref_scalar_spans(
+                "foo: >\n  one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}"
+            )
+            .unwrap()
+        ),
         [
             ("foo", "foo"),
-            ("one:\u{4F60}\u{5273} two:\u{4F60}\u{5273}\n", "one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}")
+            (
+                "one:\u{4F60}\u{5273} two:\u{4F60}\u{5273}\n",
+                "one:\u{4F60}\u{5273}\n  two:\u{4F60}\u{5273}"
+            )
         ],
     );
 }

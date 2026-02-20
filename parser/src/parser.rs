@@ -162,7 +162,10 @@ pub struct Parser<'input, T: BorrowedInput<'input>> {
     /// The next YAML event to emit.
     current: Option<(Event<'input>, Span)>,
     /// Anchors that have been encountered in the YAML document.
+    #[cfg(not(feature = "hashbrown_anchors"))]
     anchors: BTreeMap<Cow<'input, str>, usize>,
+    #[cfg(feature = "hashbrown_anchors")]
+    anchors: hashbrown::HashMap<Cow<'input, str>, usize>,
     /// Next ID available for an anchor.
     ///
     /// Every anchor is given a unique ID. We use an incrementing ID and this is both the ID to
@@ -281,6 +284,16 @@ pub trait ParserTrait<'input> {
     fn next_event(&mut self) -> Option<ParseResult<'input>>;
 
     /// Load the YAML from the stream in `self`, pushing events into `recv`.
+    ///
+    /// If `multi` is `true`, multiple YAML documents in the stream are allowed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ScanError`] if parsing fails due to:
+    /// - malformed YAML
+    /// - unexpected tokens
+    /// - duplicate directives
+    /// - unexpected EOF
     fn load<R: SpannedEventReceiver<'input>>(
         &mut self,
         recv: &mut R,
@@ -318,8 +331,10 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             state: State::StreamStart,
             token: None,
             current: None,
-
+            #[cfg(not(feature = "hashbrown_anchors"))]
             anchors: BTreeMap::new(),
+            #[cfg(feature = "hashbrown_anchors")]
+            anchors: hashbrown::HashMap::new(),
             // valid anchor_id starts from 1
             anchor_id_count: 1,
             tags: BTreeMap::new(),
@@ -822,15 +837,13 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             Token(_, TokenType::Alias(_)) => {
                 self.pop_state();
                 if let Token(span, TokenType::Alias(name)) = self.fetch_token() {
-                    match self.anchors.get(&*name) {
-                        None => {
-                            return Err(ScanError::new_str(
-                                span.start,
-                                "while parsing node, found unknown anchor",
-                            ))
-                        }
-                        Some(id) => return Ok((Event::Alias(*id), span)),
-                    }
+                    return match self.anchors.get(&*name) {
+                        None => Err(ScanError::new_str(
+                            span.start,
+                            "while parsing node, found unknown anchor",
+                        )),
+                        Some(id) => Ok((Event::Alias(*id), span)),
+                    };
                 }
                 unreachable!()
             }
@@ -906,9 +919,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
                     State::FlowMappingFirstKey
                     | State::FlowMappingKey
                     | State::FlowMappingValue
-                    | State::FlowMappingEmptyValue => {
-                        "unexpected EOF while parsing a flow mapping"
-                    }
+                    | State::FlowMappingEmptyValue => "unexpected EOF while parsing a flow mapping",
                     State::FlowSequenceEntryMappingKey
                     | State::FlowSequenceEntryMappingValue
                     | State::FlowSequenceEntryMappingEnd(_) => {

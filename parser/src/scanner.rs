@@ -606,7 +606,7 @@ impl FlowScalarBuf {
     fn as_owned_mut(&mut self) -> Option<&mut String> {
         match self {
             Self::Owned(s) => Some(s),
-            _ => None,
+            Self::Borrowed { .. } => None,
         }
     }
 
@@ -775,7 +775,10 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         if self.input.look_ch() == '!' {
             self.skip_non_blank();
         } else if !is_tag_char(self.input.peek()) {
-            return Err(ScanError::new_str(*start_mark, "invalid global tag character"));
+            return Err(ScanError::new_str(
+                *start_mark,
+                "invalid global tag character",
+            ));
         } else if self.input.peek() == '%' {
             // Needs decoding. Fall back to allocating path below.
         } else {
@@ -1147,10 +1150,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             // Stop fetching immediately after document end/start markers
             // to allow the parser to emit the event before reading more content.
             if let Some(token) = self.tokens.back() {
-                if matches!(
-                    token.1,
-                    TokenType::DocumentEnd | TokenType::DocumentStart
-                ) {
+                if matches!(token.1, TokenType::DocumentEnd | TokenType::DocumentStart) {
                     break;
                 }
             }
@@ -1558,53 +1558,54 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             return self.scan_tag_owned(&start_mark);
         }
 
-        let (handle, suffix): (Cow<'input, str>, Cow<'input, str>) = if self.input.nth_char_is(1, '<') {
-            // Verbatim tags always need owned strings (URI escapes).
-            let suffix = self.scan_verbatim_tag(&start_mark)?;
-            (Cow::Owned(String::new()), Cow::Owned(suffix))
-        } else {
-            // The tag has either the '!suffix' or the '!handle!suffix'
-            let handle = self.scan_tag_handle_cow(&start_mark)?;
-            // Check if it is, indeed, handle.
-            if handle.len() >= 2 && handle.starts_with('!') && handle.ends_with('!') {
-                // A tag handle starting with "!!" is a secondary tag handle.
-                let suffix = self.scan_tag_shorthand_suffix_cow(&start_mark)?;
-                (handle, suffix)
+        let (handle, suffix): (Cow<'input, str>, Cow<'input, str>) =
+            if self.input.nth_char_is(1, '<') {
+                // Verbatim tags always need owned strings (URI escapes).
+                let suffix = self.scan_verbatim_tag(&start_mark)?;
+                (Cow::Owned(String::new()), Cow::Owned(suffix))
             } else {
-                // Not a real handle, it's part of the suffix.
-                // E.g., "!foo" -> handle="!", suffix="foo"
-                // The "handle" we scanned is actually "!" + suffix_part1.
-                // We need to also scan any remaining suffix characters.
-                let remaining_suffix = self.scan_tag_shorthand_suffix_cow(&start_mark)?;
-                
-                // Extract suffix from handle (skip leading '!') and combine with remaining.
-                let suffix = if handle.len() > 1 {
-                    if remaining_suffix.is_empty() {
-                        // The suffix is just what's in handle after '!'
-                        match handle {
-                            Cow::Borrowed(s) => Cow::Borrowed(&s[1..]),
-                            Cow::Owned(s) => Cow::Owned(s[1..].to_owned()),
+                // The tag has either the '!suffix' or the '!handle!suffix'
+                let handle = self.scan_tag_handle_cow(&start_mark)?;
+                // Check if it is, indeed, handle.
+                if handle.len() >= 2 && handle.starts_with('!') && handle.ends_with('!') {
+                    // A tag handle starting with "!!" is a secondary tag handle.
+                    let suffix = self.scan_tag_shorthand_suffix_cow(&start_mark)?;
+                    (handle, suffix)
+                } else {
+                    // Not a real handle, it's part of the suffix.
+                    // E.g., "!foo" -> handle="!", suffix="foo"
+                    // The "handle" we scanned is actually "!" + suffix_part1.
+                    // We need to also scan any remaining suffix characters.
+                    let remaining_suffix = self.scan_tag_shorthand_suffix_cow(&start_mark)?;
+
+                    // Extract suffix from handle (skip leading '!') and combine with remaining.
+                    let suffix = if handle.len() > 1 {
+                        if remaining_suffix.is_empty() {
+                            // The suffix is just what's in handle after '!'
+                            match handle {
+                                Cow::Borrowed(s) => Cow::Borrowed(&s[1..]),
+                                Cow::Owned(s) => Cow::Owned(s[1..].to_owned()),
+                            }
+                        } else {
+                            // Combine handle (minus leading '!') with remaining suffix.
+                            let mut combined = handle[1..].to_owned();
+                            combined.push_str(&remaining_suffix);
+                            Cow::Owned(combined)
                         }
                     } else {
-                        // Combine handle (minus leading '!') with remaining suffix.
-                        let mut combined = handle[1..].to_owned();
-                        combined.push_str(&remaining_suffix);
-                        Cow::Owned(combined)
+                        // handle is just "!", suffix is whatever we scanned after
+                        remaining_suffix
+                    };
+
+                    // A special case: the '!' tag.  Set the handle to '' and the
+                    // suffix to '!'.
+                    if suffix.is_empty() {
+                        (Cow::Borrowed(""), Cow::Borrowed("!"))
+                    } else {
+                        (Cow::Borrowed("!"), suffix)
                     }
-                } else {
-                    // handle is just "!", suffix is whatever we scanned after
-                    remaining_suffix
-                };
-                
-                // A special case: the '!' tag.  Set the handle to '' and the
-                // suffix to '!'.
-                if suffix.is_empty() {
-                    (Cow::Borrowed(""), Cow::Borrowed("!"))
-                } else {
-                    (Cow::Borrowed("!"), suffix)
                 }
-            }
-        };
+            };
 
         if is_blank_or_breakz(self.input.look_ch())
             || (self.flow_level > 0 && self.input.next_is_flow())
@@ -1622,7 +1623,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         }
     }
 
-    /// Original owned-only tag scanning path for inputs without byte_offset support.
+    /// Original owned-only tag scanning path for inputs without `byte_offset` support.
     fn scan_tag_owned(&mut self, start_mark: &Marker) -> Result<Token<'input>, ScanError> {
         let mut handle = String::new();
         let mut suffix;
@@ -1701,17 +1702,16 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             return Ok(Cow::Owned(self.scan_tag_handle(false, mark)?));
         };
 
-        match self.try_borrow_slice(start, end) {
-            Some(slice) => Ok(Cow::Borrowed(slice)),
-            None => {
-                let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
-                    ScanError::new_str(
-                        *mark,
-                        "internal error: input advertised slicing but did not provide a slice",
-                    )
-                })?;
-                Ok(Cow::Owned(slice.to_owned()))
-            }
+        if let Some(slice) = self.try_borrow_slice(start, end) {
+            Ok(Cow::Borrowed(slice))
+        } else {
+            let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                ScanError::new_str(
+                    *mark,
+                    "internal error: input advertised slicing but did not provide a slice",
+                )
+            })?;
+            Ok(Cow::Owned(slice.to_owned()))
         }
     }
 
@@ -1723,14 +1723,18 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         mark: &Marker,
     ) -> Result<Cow<'input, str>, ScanError> {
         let Some(start) = self.input.byte_offset() else {
-            return Ok(Cow::Owned(self.scan_tag_shorthand_suffix(false, false, "", mark)?));
+            return Ok(Cow::Owned(
+                self.scan_tag_shorthand_suffix(false, false, "", mark)?,
+            ));
         };
 
         // Scan tag characters, checking for URI escapes.
         while is_tag_char(self.input.look_ch()) {
             if self.input.peek() == '%' {
                 // URI escape found - must decode, so fall back to owned path.
-                let current = self.input.byte_offset()
+                let current = self
+                    .input
+                    .byte_offset()
                     .expect("byte_offset() must remain available once enabled");
                 let mut out = if let Some(slice) = self.input.slice_bytes(start, current) {
                     slice.to_owned()
@@ -1753,20 +1757,21 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         }
 
         let Some(end) = self.input.byte_offset() else {
-            return Ok(Cow::Owned(self.scan_tag_shorthand_suffix(false, false, "", mark)?));
+            return Ok(Cow::Owned(
+                self.scan_tag_shorthand_suffix(false, false, "", mark)?,
+            ));
         };
 
-        match self.try_borrow_slice(start, end) {
-            Some(slice) => Ok(Cow::Borrowed(slice)),
-            None => {
-                let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
-                    ScanError::new_str(
-                        *mark,
-                        "internal error: input advertised slicing but did not provide a slice",
-                    )
-                })?;
-                Ok(Cow::Owned(slice.to_owned()))
-            }
+        if let Some(slice) = self.try_borrow_slice(start, end) {
+            Ok(Cow::Borrowed(slice))
+        } else {
+            let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                ScanError::new_str(
+                    *mark,
+                    "internal error: input advertised slicing but did not provide a slice",
+                )
+            })?;
+            Ok(Cow::Owned(slice.to_owned()))
         }
     }
 
@@ -2199,7 +2204,10 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
 
     fn fetch_document_indicator(&mut self, t: TokenType<'input>) -> ScanResult {
         if let Some((mark, bracket)) = self.flow_markers.pop() {
-            return Err(ScanError::new(mark, format!("unclosed bracket '{bracket}'")));
+            return Err(ScanError::new(
+                mark,
+                format!("unclosed bracket '{bracket}'"),
+            ));
         }
 
         self.unroll_indent(-1);
@@ -2678,7 +2686,9 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                             FlowScalarBuf::Owned(ref mut string) => self.read_break(string),
                             FlowScalarBuf::Borrowed { .. } => {
                                 self.promote_flow_scalar_buf_to_owned(&start_mark, &mut buf)?;
-                                let Some(string) = buf.as_owned_mut() else { unreachable!() };
+                                let Some(string) = buf.as_owned_mut() else {
+                                    unreachable!()
+                                };
                                 self.read_break(string);
                             }
                         }
@@ -2737,7 +2747,9 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                         FlowScalarBuf::Owned(ref mut string) => string.push(' '),
                         FlowScalarBuf::Borrowed { .. } => {
                             self.promote_flow_scalar_buf_to_owned(&start_mark, &mut buf)?;
-                            let Some(string) = buf.as_owned_mut() else { unreachable!() };
+                            let Some(string) = buf.as_owned_mut() else {
+                                unreachable!()
+                            };
                             string.push(' ');
                         }
                     }
@@ -2787,17 +2799,16 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 if pending_ws_start.is_some() {
                     end = pending_ws_end;
                 }
-                match self.try_borrow_slice(start, end) {
-                    Some(slice) => Cow::Borrowed(slice),
-                    None => {
-                        let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
-                            ScanError::new_str(
-                                start_mark,
-                                "internal error: input advertised offsets but did not provide a slice",
-                            )
-                        })?;
-                        Cow::Owned(slice.to_owned())
-                    }
+                if let Some(slice) = self.try_borrow_slice(start, end) {
+                    Cow::Borrowed(slice)
+                } else {
+                    let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                        ScanError::new_str(
+                            start_mark,
+                            "internal error: input advertised offsets but did not provide a slice",
+                        )
+                    })?;
+                    Cow::Owned(slice.to_owned())
                 }
             }
         };
@@ -2832,7 +2843,9 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                         buf.commit_pending_ws();
                         self.promote_flow_scalar_buf_to_owned(start_mark, buf)?;
                     }
-                    let Some(string) = buf.as_owned_mut() else { unreachable!() };
+                    let Some(string) = buf.as_owned_mut() else {
+                        unreachable!()
+                    };
                     string.push('\'');
                     self.skip_n_non_blank(2);
                 }
@@ -2857,7 +2870,9 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                         buf.commit_pending_ws();
                         self.promote_flow_scalar_buf_to_owned(start_mark, buf)?;
                     }
-                    let Some(string) = buf.as_owned_mut() else { unreachable!() };
+                    let Some(string) = buf.as_owned_mut() else {
+                        unreachable!()
+                    };
                     string.push(self.resolve_flow_scalar_escape_sequence(start_mark)?);
                 }
                 c => {
@@ -3000,7 +3015,11 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 // of a plain scalar in block context, and there is potential continuation on the
                 // next line, this is invalid. We cannot decide yet if there will be continuation,
                 // so record that a comment interrupted a plain scalar.
-                if self.input.peek() == '#' && !string.is_empty() && !self.buf_whitespaces.is_empty() && self.flow_level == 0 {
+                if self.input.peek() == '#'
+                    && !string.is_empty()
+                    && !self.buf_whitespaces.is_empty()
+                    && self.flow_level == 0
+                {
                     self.interrupted_plain_by_comment = Some(self.mark);
                 }
                 break;
@@ -3405,7 +3424,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                     mark: self.mark,
                     possible: true,
                     required,
-                    token_number: self.tokens_parsed + self.tokens.len()
+                    token_number: self.tokens_parsed + self.tokens.len(),
                 };
             }
         }
@@ -3508,9 +3527,7 @@ mod test {
     /// Ensure `%TAG` directive handle and prefix are borrowed when they are verbatim (no escapes).
     #[test]
     fn tag_directive_parts_are_borrowed_for_str_input() {
-        let mut scanner = Scanner::new(StrInput::new(
-            "%TAG !e! tag:example.com,2000:app/\n",
-        ));
+        let mut scanner = Scanner::new(StrInput::new("%TAG !e! tag:example.com,2000:app/\n"));
 
         loop {
             let tok = scanner

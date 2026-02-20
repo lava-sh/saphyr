@@ -1,5 +1,5 @@
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScanError};
+use saphyr_parser_bw as saphyr_parser;
 
 fn collect_scalars(input: &str) -> Result<Vec<String>, ScanError> {
     let mut out = Vec::new();
@@ -25,7 +25,8 @@ fn tab_in_block_literal_body_is_allowed() {
 fn tab_in_block_folded_body_is_allowed() {
     // A tab in the body of a folded block scalar (>) should be accepted as content.
     let yaml = "key: >\n  a\tb";
-    let scalars = collect_scalars(yaml).expect("parser should accept tab inside folded block scalar body");
+    let scalars =
+        collect_scalars(yaml).expect("parser should accept tab inside folded block scalar body");
     // For a single content line, folded and literal both end with a trailing \n
     assert_eq!(scalars, vec!["key".to_string(), "a\tb\n".to_string()]);
 }
@@ -47,10 +48,12 @@ fn tab_at_start_of_block_scalar_is_rejected() {
         }
     }
 
-    let err = got_err.expect("expected a ScanError due to leading tab at start of block scalar content");
+    let err =
+        got_err.expect("expected a ScanError due to leading tab at start of block scalar content");
     // The scanner has a specific error for this case.
     assert!(
-        err.info().contains("a block scalar content cannot start with a tab"),
+        err.info()
+            .contains("a block scalar content cannot start with a tab"),
         "unexpected error message: {}",
         err.info()
     );

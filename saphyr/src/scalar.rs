@@ -38,6 +38,8 @@ pub enum ScalarOwned {
     Boolean(bool),
     /// An integer value ([10.2.1.3 Integer](https://yaml.org/spec/1.2.2/#integer)).
     Integer(i64),
+    /// An arbitrary-size number.
+    BigNum(BigNum),
     /// A floating point value ([10.2.1.4 Floating
     /// Point](https://yaml.org/spec/1.2.2/#floating-point)).
     FloatingPoint(OrderedFloat<f64>),
@@ -45,6 +47,21 @@ pub enum ScalarOwned {
     ///
     /// This variant is used when representing the node in any other representation fails.
     String(String),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub struct BigNum {
+    raw: String,
+}
+
+impl BigNum {
+    pub fn new(raw: impl Into<String>) -> Self {
+        Self { raw: raw.into() }
+    }
+
+    pub fn as_raw(&self) -> &str {
+        &self.raw
+    }
 }
 
 impl<'input> Scalar<'input> {
@@ -258,6 +275,7 @@ impl ScalarOwned {
             Self::Integer(v) => Scalar::Integer(*v),
             Self::FloatingPoint(v) => Scalar::FloatingPoint(*v),
             Self::String(v) => Scalar::String(v.as_str().into()),
+            Self::BigNum(b) => Scalar::String(b.raw.as_str().into()),
         }
     }
 

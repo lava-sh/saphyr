@@ -10,9 +10,9 @@ use core::{
 };
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{BufferedInput, Parser, ScanError, ScalarStyle, Tag};
+use saphyr_parser::{BufferedInput, Parser, ScalarStyle, ScanError, Tag};
 
-use crate::{LoadableYamlNode, Scalar, YamlOwned, loader::YamlLoader};
+use crate::{loader::YamlLoader, LoadableYamlNode, Scalar, YamlOwned};
 
 /// A YAML node is stored as this `Yaml` enumeration, which provides an easy way to
 /// access your YAML document.

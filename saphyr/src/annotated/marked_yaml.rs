@@ -5,7 +5,7 @@
 use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{BufferedInput, Marker, Parser, ScanError, ScalarStyle, Span, Tag};
+use saphyr_parser::{BufferedInput, Marker, Parser, ScalarStyle, ScanError, Span, Tag};
 
 use crate::{
     index::SafelyIndexMut, loader::YamlLoader, Accessor, LoadableYamlNode, SafelyIndex, Scalar,

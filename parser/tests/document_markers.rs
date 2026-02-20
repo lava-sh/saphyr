@@ -1,5 +1,5 @@
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScanError, Span};
+use saphyr_parser_bw as saphyr_parser;
 
 /// Run the parser through the string.
 ///
@@ -69,8 +69,16 @@ fn test_document_end_emitted_immediately() {
 
     // The DocumentEnd span should start at position 4 (start of "...")
     // and end at position 7 (right after "...")
-    assert_eq!(doc_end_event.1.start.index(), 4, "DocumentEnd should start at the '...' marker");
-    assert_eq!(doc_end_event.1.end.index(), 7, "DocumentEnd should end right after the '...' marker");
+    assert_eq!(
+        doc_end_event.1.start.index(),
+        4,
+        "DocumentEnd should start at the '...' marker"
+    );
+    assert_eq!(
+        doc_end_event.1.end.index(),
+        7,
+        "DocumentEnd should end right after the '...' marker"
+    );
 }
 
 #[test]
@@ -93,8 +101,16 @@ fn test_document_start_emitted_immediately() {
 
     // The DocumentStart span should start at position 0 (start of "---")
     // and end at position 3 (right after "---")
-    assert_eq!(doc_start_event.1.start.index(), 0, "DocumentStart should start at the '---' marker");
-    assert_eq!(doc_start_event.1.end.index(), 3, "DocumentStart should end right after the '---' marker");
+    assert_eq!(
+        doc_start_event.1.start.index(),
+        0,
+        "DocumentStart should start at the '---' marker"
+    );
+    assert_eq!(
+        doc_start_event.1.end.index(),
+        3,
+        "DocumentStart should end right after the '---' marker"
+    );
 }
 
 #[test]
@@ -131,10 +147,26 @@ fn test_document_end_emitted_immediately_on_next_document_start_marker() {
 
     // DocumentEnd should be located at the `---` marker.
     let doc_end_span = events[doc_end_idx].1;
-    assert_eq!(doc_end_span.start.index(), 4, "DocumentEnd should start at the '---' marker");
-    assert_eq!(doc_end_span.end.index(), 7, "DocumentEnd should end right after the '---' marker");
+    assert_eq!(
+        doc_end_span.start.index(),
+        4,
+        "DocumentEnd should start at the '---' marker"
+    );
+    assert_eq!(
+        doc_end_span.end.index(),
+        7,
+        "DocumentEnd should end right after the '---' marker"
+    );
 
     // Sanity: the DocumentStart marker span should match.
-    assert_eq!(next_span.start.index(), 4, "DocumentStart should start at the '---' marker");
-    assert_eq!(next_span.end.index(), 7, "DocumentStart should end right after the '---' marker");
+    assert_eq!(
+        next_span.start.index(),
+        4,
+        "DocumentStart should start at the '---' marker"
+    );
+    assert_eq!(
+        next_span.end.index(),
+        7,
+        "DocumentStart should end right after the '---' marker"
+    );
 }

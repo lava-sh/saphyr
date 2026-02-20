@@ -1,5 +1,5 @@
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Parser, ScanError};
+use saphyr_parser_bw as saphyr_parser;
 
 // ZYU8: Directive variants
 // In YAML 1.2, a directive name is any non\u{2011}space, non\u{2011}line\u{2011}break sequence of characters
@@ -11,9 +11,7 @@ fn yaml_zyu8_directive_variant_yaml11_null_document() {
 
     for item in Parser::new_from_str(yaml) {
         match item {
-            Ok((_event, _span)) => {
-                continue
-            },
+            Ok((_event, _span)) => continue,
             Err(e) => {
                 got_err = Some(e);
                 break;
@@ -50,7 +48,10 @@ fn yaml_bad_yaml_directive() {
     }
     // This should fail because "YAML" is a defined directive and it has too many parameters.
     assert!(got_err.is_some());
-    assert!(got_err.unwrap().info().contains("did not find expected comment or line break"));
+    assert!(got_err
+        .unwrap()
+        .info()
+        .contains("did not find expected comment or line break"));
 }
 
 #[test]

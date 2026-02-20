@@ -1,7 +1,7 @@
 #![allow(clippy::bool_assert_comparison)]
 #![allow(clippy::float_cmp)]
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScalarStyle, ScanError};
+use saphyr_parser_bw as saphyr_parser;
 
 /// Run the parser through the string.
 ///

@@ -1,6 +1,6 @@
 #![allow(clippy::cast_possible_truncation, clippy::cast_precision_loss)]
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, Span, SpannedEventReceiver};
+use saphyr_parser_bw as saphyr_parser;
 use std::{env, fs::File, io::prelude::*};
 
 /// A sink which discards any event sent.
