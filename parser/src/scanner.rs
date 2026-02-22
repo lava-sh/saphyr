@@ -148,13 +148,23 @@ pub struct Span {
     pub start: Marker,
     /// The end (exclusive) of the range.
     pub end: Marker,
+
+    /// Optional indentation hint associated with this span.
+    ///
+    /// This is only meaningful for certain parser-emitted events (notably: block mapping keys).
+    /// When indentation is not meaningful or cannot be provided, it must be `None`.
+    pub indent: Option<usize>,
 }
 
 impl Span {
     /// Create a new [`Span`] for the given range.
     #[must_use]
     pub fn new(start: Marker, end: Marker) -> Span {
-        Span { start, end }
+        Span {
+            start,
+            end,
+            indent: None,
+        }
     }
 
     /// Create a empty [`Span`] at a given location.
@@ -168,7 +178,15 @@ impl Span {
         Span {
             start: mark,
             end: mark,
+            indent: None,
         }
+    }
+
+    /// Return a copy of this [`Span`] with the given indentation hint.
+    #[must_use]
+    pub fn with_indent(mut self, indent: Option<usize>) -> Span {
+        self.indent = indent;
+        self
     }
 
     /// Return the length of the span (in characters).

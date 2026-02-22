@@ -161,6 +161,13 @@ pub struct Parser<'input, T: BorrowedInput<'input>> {
     token: Option<Token<'input>>,
     /// The next YAML event to emit.
     current: Option<(Event<'input>, Span)>,
+
+    /// Pending indentation hint to be attached to the next emitted event span.
+    ///
+    /// This is used to communicate indentation for block mapping keys. It is set when consuming a
+    /// `TokenType::Key` in block style, and is applied to the next emitted node event (the key
+    /// itself).
+    pending_key_indent: Option<usize>,
     /// Anchors that have been encountered in the YAML document.
     anchors: BTreeMap<Cow<'input, str>, usize>,
     /// Next ID available for an anchor.
@@ -319,6 +326,8 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             token: None,
             current: None,
 
+            pending_key_indent: None,
+
             anchors: BTreeMap::new(),
             // valid anchor_id starts from 1
             anchor_id_count: 1,
@@ -470,8 +479,12 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
         if self.state == State::End {
             return Ok((Event::StreamEnd, Span::empty(self.scanner.mark())));
         }
-        let (ev, mark) = self.state_machine()?;
-        Ok((ev, mark))
+        let (ev, span) = self.state_machine()?;
+        if let Some(indent) = self.pending_key_indent.take() {
+            Ok((ev, span.with_indent(Some(indent))))
+        } else {
+            Ok((ev, span))
+        }
     }
 
     /// Load the YAML from the stream in `self`, pushing events into `recv`.
@@ -939,6 +952,10 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
         }
         match *self.peek_token()? {
             Token(_, TokenType::Key) => {
+                // Indentation is only meaningful for block mapping keys.
+                if let Token(key_span, TokenType::Key) = *self.peek_token()? {
+                    self.pending_key_indent = Some(key_span.start.col());
+                }
                 self.skip();
                 if let Token(mark, TokenType::Key | TokenType::Value | TokenType::BlockEnd) =
                     *self.peek_token()?
