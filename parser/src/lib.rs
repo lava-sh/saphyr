@@ -46,6 +46,8 @@ mod char_traits;
 mod debug;
 pub mod input;
 mod parser;
+/// A stack-based parser implementation.
+pub mod parser_stack;
 mod scanner;
 
 pub use crate::input::{str::StrInput, BorrowedInput, BufferedInput, Input};

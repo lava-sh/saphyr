@@ -19,7 +19,8 @@ a2:
 #[test]
 fn test_non_ascii_comment_many() {
     let yaml = "\
-# A \u{AC00}
+# A \u{AC00}\
+\u{AC00}: \u{AC00}
 a1: # A \u{AC00}
   b: 1 # A \u{AC00}
 a2: # A \u{AC00} # A \u{AC00}
