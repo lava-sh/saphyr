@@ -1,7 +1,7 @@
 extern crate alloc;
 
 use saphyr_parser_bw::{
-    parser_stack::ParserStack, Event, Parser, ParserTrait, StrInput,
+    parser_stack::ParserStack, Event, Parser, ParserTrait, StrInput, SpannedEventReceiver, Span
 };
 use core::iter::Empty;
 use alloc::{string::{String, ToString}, vec, vec::Vec};
@@ -71,7 +71,7 @@ fn test_two_parsers_switching() {
     assert_eq!(
         names,
         vec![
-            "StreamStart", "DocStart", "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
             "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd", "StreamEnd"
         ]
     );
@@ -104,7 +104,7 @@ fn test_two_parsers_first_has_multiple_docs_fine() {
         names,
         vec![
             // p2
-            "StreamStart", "DocStart", "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
             // p1 doc 1
             "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd",
             // p1 doc 2
@@ -127,7 +127,7 @@ fn test_three_parsers_dynamic_adding() {
 
     // Fetch first event from middle parser (p2)
     let ev2 = stack.next_event().unwrap().unwrap().0;
-    assert!(matches!(ev2, Event::StreamStart));
+    assert!(matches!(ev2, Event::MappingStart(..)));
 
     // Now push third parser
     stack.push_str_parser(Parser::new_from_str("p3: 3"), "p3".to_string());
@@ -138,11 +138,11 @@ fn test_three_parsers_dynamic_adding() {
 
     // p3 content:
     let mut expected = vec![
-        "StreamStart", "DocStart", "MapStart", "Scalar(p3)", "Scalar(3)", "MapEnd"
+        "MapStart", "Scalar(p3)", "Scalar(3)", "MapEnd"
     ];
-    // p2 rest (already yielded StreamStart):
+    // p2 rest (already yielded MapStart, so now it's Scalar(p2)):
     expected.extend(vec![
-        "DocStart", "MapStart", "Scalar(p2)", "Scalar(2)", "MapEnd"
+        "Scalar(p2)", "Scalar(2)", "MapEnd"
     ]);
     // p1 rest (already yielded StreamStart):
     expected.extend(vec![
@@ -204,4 +204,92 @@ fn test_anchor_id_propagation() {
     if let Event::Scalar(_, _, id, _) = v3_ev {
         assert_eq!(*id, 3, "Third anchor (from parent parser after inner) should have ID 3");
     }
+}
+
+struct TestReceiver<'input> {
+    events: Vec<Event<'input>>,
+}
+
+impl<'input> SpannedEventReceiver<'input> for TestReceiver<'input> {
+    fn on_event(&mut self, ev: Event<'input>, _span: Span) {
+        self.events.push(ev);
+    }
+}
+
+#[test]
+fn test_parser_stack_load() {
+    let mut stack: MyStack = ParserStack::new();
+    stack.push_str_parser(Parser::new_from_str("a: 1\n---\nc: 3"), "p1".to_string());
+    stack.push_str_parser(Parser::new_from_str("b: 2"), "p2".to_string());
+
+    let mut recv = TestReceiver { events: Vec::new() };
+    
+    // Load with multi = true
+    stack.load(&mut recv, true).unwrap();
+
+    let names = format_events(&recv.events);
+    
+    assert_eq!(
+        names,
+        vec![
+            // p2
+            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            // p1 doc 1
+            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd",
+            // p1 doc 2
+            "DocStart", "MapStart", "Scalar(c)", "Scalar(3)", "MapEnd", "DocEnd", "StreamEnd"
+        ]
+    );
+}
+
+#[test]
+fn test_parser_stack_load_single() {
+    let mut stack: MyStack = ParserStack::new();
+    stack.push_str_parser(Parser::new_from_str("a: 1\n---\nc: 3"), "p1".to_string());
+    stack.push_str_parser(Parser::new_from_str("b: 2"), "p2".to_string());
+
+    let mut recv = TestReceiver { events: Vec::new() };
+    
+    // Load with multi = false
+    stack.load(&mut recv, false).unwrap();
+
+    let names = format_events(&recv.events);
+    
+    assert_eq!(
+        names,
+        vec![
+            // p2 (inner document doesn't trigger multi check because the document end logic applies based on the event)
+            // Wait, multi=false means we stop after the first DocumentEnd.
+            // p2 ends with a DocumentEnd internally but ParserStack doesn't emit DocumentEnd for inner parsers?
+            // Actually, wait, let's see how format_events looks for p2 in previous test: 
+            // "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd"
+            // There is no DocEnd for p2 in the output of ParserStack!
+            // Therefore, load with multi=false will stop after p1's FIRST DocEnd!
+            // Wait, so it will yield:
+            // p2
+            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            // p1 doc 1
+            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd"
+        ]
+    );
+}
+
+#[test]
+fn test_iterator_impl() {
+    let mut stack: MyStack = ParserStack::new();
+    stack.push_str_parser(Parser::new_from_str("a: b"), "p1".to_string());
+    
+    let mut events = Vec::new();
+    for ev in stack {
+        let (e, _) = ev.unwrap();
+        events.push(e);
+    }
+    
+    let names = format_events(&events);
+    assert_eq!(
+        names,
+        vec![
+            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(b)", "MapEnd", "DocEnd", "StreamEnd"
+        ]
+    );
 }

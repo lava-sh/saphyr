@@ -166,6 +166,9 @@ where
                     }
                 }
                 Some(Ok(event)) => {
+                    if self.parsers.len() > 1 && matches!(event.0, Event::StreamStart | Event::DocumentStart(_)) {
+                        continue;
+                    }
                     return Ok(event);
                 }
             }
@@ -225,9 +228,45 @@ where
 
     fn load<R: SpannedEventReceiver<'input>>(
         &mut self,
-        _recv: &mut R,
-        _multi: bool,
+        recv: &mut R,
+        multi: bool,
     ) -> Result<(), ScanError> {
-        todo!()
+        loop {
+            // Fetch the next event, which is properly synced across the stack
+            let Some(res) = self.next_event() else {
+                break;
+            };
+            
+            let (ev, span) = res?;
+
+            // Track if we need to stop based on `multi`
+            let is_doc_end = matches!(ev, Event::DocumentEnd);
+            let is_stream_end = matches!(ev, Event::StreamEnd);
+
+            recv.on_event(ev, span);
+
+            if is_stream_end {
+                break;
+            }
+
+            // If we only want a single document and we just reached the end of one, stop
+            if !multi && is_doc_end {
+                break;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<'input, I, T> Iterator for ParserStack<'input, I, T>
+where
+    I: Iterator<Item = char>,
+    T: BorrowedInput<'input>,
+{
+    type Item = Result<(Event<'input>, Span), ScanError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_event()
     }
 }
