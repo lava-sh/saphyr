@@ -125,7 +125,24 @@ where
             };
 
             match res {
-                Some(Ok((Event::StreamEnd, _))) | None => {
+                Some(Ok((Event::StreamEnd, span))) => {
+                    if self.parsers.len() == 1 {
+                        self.parsers.pop();
+                        return Ok((Event::StreamEnd, span));
+                    }
+                    let popped = self.parsers.pop().unwrap();
+                    if let Some(parent) = self.parsers.last_mut() {
+                        parent.set_anchor_offset(popped.get_anchor_offset());
+                    }
+                }
+                None => {
+                    if self.parsers.len() == 1 {
+                        self.parsers.pop();
+                        return Ok((
+                            Event::StreamEnd,
+                            Span::empty(crate::scanner::Marker::new(0, 1, 0)),
+                        ));
+                    }
                     let popped = self.parsers.pop().unwrap();
                     if let Some(parent) = self.parsers.last_mut() {
                         parent.set_anchor_offset(popped.get_anchor_offset());
