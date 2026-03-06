@@ -66,7 +66,7 @@ where
     current: Option<(Event<'input>, Span)>,
     stream_end_emitted: bool,
     #[allow(clippy::type_complexity)]
-    include_resolver: Option<Box<dyn FnMut(&str) -> Result<AnyParser<'input, I, T>, ScanError> + 'input>>,
+    include_resolver: Option<Box<dyn FnMut(&str) -> Result<String, ScanError> + 'input>>,
 }
 
 impl<'input, I, T> ParserStack<'input, I, T>
@@ -88,7 +88,7 @@ where
     /// Sets the include resolver for this stack.
     pub fn set_resolver(
         &mut self,
-        resolver: impl FnMut(&str) -> Result<AnyParser<'input, I, T>, ScanError> + 'input,
+        resolver: impl FnMut(&str) -> Result<String, ScanError> + 'input,
     ) {
         self.include_resolver = Some(Box::new(resolver));
     }
@@ -96,14 +96,13 @@ where
     /// Resolves an include string using the include resolver.
     pub fn resolve(&mut self, include_str: &str) -> Result<(), ScanError> {
         if let Some(resolver) = &mut self.include_resolver {
-            let parser = resolver(include_str)?;
+            let content = resolver(include_str)?;
+            let text: &'input str = Box::leak(content.into_boxed_str());
+            let mut parser = Parser::new_from_str(text);
             if let Some(parent) = self.parsers.last() {
-                let mut p = parser;
-                p.set_anchor_offset(parent.get_anchor_offset());
-                self.parsers.push(p);
-            } else {
-                self.parsers.push(parser);
+                parser.set_anchor_offset(parent.get_anchor_offset());
             }
+            self.parsers.push(AnyParser::String { parser, name: include_str.into() });
             Ok(())
         } else {
             Err(ScanError::new(crate::scanner::Marker::new(0, 1, 0), String::from("No include resolver set for parser stack.")))
