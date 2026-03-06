@@ -3,23 +3,33 @@ use crate::{
     parser::{Event, ParseResult, Parser, ParserTrait, SpannedEventReceiver},
     scanner::{ScanError, Span},
 };
-use alloc::{string::String, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 
-enum AnyParser<'input, I, T>
+/// A wrapper for different types of parsers.
+pub enum AnyParser<'input, I, T>
 where
     I: Iterator<Item = char>,
     T: BorrowedInput<'input>,
 {
+    /// A parser over a string input.
     String {
+        /// The parser itself.
         parser: Parser<'input, StrInput<'input>>,
+        /// The name of the parser.
         name: String,
     },
+    /// A parser over an iterator input.
     Iter {
+        /// The parser itself.
         parser: Parser<'static, BufferedInput<I>>,
+        /// The name of the parser.
         name: String,
     },
+    /// A parser over a custom input.
     Custom {
+        /// The parser itself.
         parser: Parser<'input, T>,
+        /// The name of the parser.
         name: String,
     },
 }
@@ -55,6 +65,8 @@ where
     parsers: Vec<AnyParser<'input, I, T>>,
     current: Option<(Event<'input>, Span)>,
     stream_end_emitted: bool,
+    #[allow(clippy::type_complexity)]
+    include_resolver: Option<Box<dyn FnMut(&str) -> Result<AnyParser<'input, I, T>, ScanError> + 'input>>,
 }
 
 impl<'input, I, T> ParserStack<'input, I, T>
@@ -69,6 +81,32 @@ where
             parsers: Vec::new(),
             current: None,
             stream_end_emitted: false,
+            include_resolver: None,
+        }
+    }
+
+    /// Sets the include resolver for this stack.
+    pub fn set_resolver(
+        &mut self,
+        resolver: impl FnMut(&str) -> Result<AnyParser<'input, I, T>, ScanError> + 'input,
+    ) {
+        self.include_resolver = Some(Box::new(resolver));
+    }
+
+    /// Resolves an include string using the include resolver.
+    pub fn resolve(&mut self, include_str: &str) -> Result<(), ScanError> {
+        if let Some(resolver) = &mut self.include_resolver {
+            let parser = resolver(include_str)?;
+            if let Some(parent) = self.parsers.last() {
+                let mut p = parser;
+                p.set_anchor_offset(parent.get_anchor_offset());
+                self.parsers.push(p);
+            } else {
+                self.parsers.push(parser);
+            }
+            Ok(())
+        } else {
+            Err(ScanError::new(crate::scanner::Marker::new(0, 1, 0), String::from("No include resolver set for parser stack.")))
         }
     }
 

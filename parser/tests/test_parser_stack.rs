@@ -293,3 +293,31 @@ fn test_iterator_impl() {
         ]
     );
 }
+
+#[test]
+fn test_include_resolver() {
+    let mut stack: MyStack = ParserStack::new();
+    stack.push_str_parser(Parser::new_from_str("a: 1"), "p1".to_string());
+    
+    stack.set_resolver(|name| {
+        if name == "inc1" {
+            let p = Parser::new_from_str("b: 2");
+            Ok(saphyr_parser_bw::parser_stack::AnyParser::String { parser: p, name: name.to_string() })
+        } else {
+            Err(saphyr_parser_bw::ScanError::new(saphyr_parser_bw::Marker::new(0, 1, 0), "Not found".to_string()))
+        }
+    });
+
+    stack.resolve("inc1").unwrap();
+
+    let events = collect_events(&mut stack).unwrap();
+    let names = format_events(&events);
+
+    assert_eq!(
+        names,
+        vec![
+            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd", "StreamEnd"
+        ]
+    );
+}
