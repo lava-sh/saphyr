@@ -317,11 +317,11 @@ where
 }
 
 impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
-    pub(crate) fn get_anchor_offset(&self) -> usize {
+    pub fn get_anchor_offset(&self) -> usize {
         self.anchor_id_count
     }
 
-    pub(crate) fn set_anchor_offset(&mut self, offset: usize) {
+    pub fn set_anchor_offset(&mut self, offset: usize) {
         self.anchor_id_count = offset;
     }
 

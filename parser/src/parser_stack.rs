@@ -5,6 +5,77 @@ use crate::{
 };
 use alloc::{boxed::Box, string::String, vec::Vec};
 
+/// A lightweight parser that replays a pre-collected event stream.
+pub struct ReplayParser<'input> {
+    events: Vec<(Event<'input>, Span)>,
+    index: usize,
+    current: Option<(Event<'input>, Span)>,
+    anchor_offset: usize,
+}
+
+impl<'input> ReplayParser<'input> {
+    #[must_use]
+    pub fn new(events: Vec<(Event<'input>, Span)>, anchor_offset: usize) -> Self {
+        Self {
+            events,
+            index: 0,
+            current: None,
+            anchor_offset,
+        }
+    }
+
+    #[must_use]
+    pub fn get_anchor_offset(&self) -> usize {
+        self.anchor_offset
+    }
+
+    pub fn set_anchor_offset(&mut self, offset: usize) {
+        self.anchor_offset = offset;
+    }
+}
+
+impl<'input> ParserTrait<'input> for ReplayParser<'input> {
+    fn peek(&mut self) -> Option<Result<&(Event<'input>, Span), ScanError>> {
+        if self.current.is_none() {
+            self.current = self.events.get(self.index).cloned();
+        }
+        self.current.as_ref().map(Ok)
+    }
+
+    fn next_event(&mut self) -> Option<ParseResult<'input>> {
+        if let Some(current) = self.current.take() {
+            self.index += 1;
+            return Some(Ok(current));
+        }
+        let event = self.events.get(self.index).cloned()?;
+        self.index += 1;
+        Some(Ok(event))
+    }
+
+    fn load<R: SpannedEventReceiver<'input>>(
+        &mut self,
+        recv: &mut R,
+        multi: bool,
+    ) -> Result<(), ScanError> {
+        loop {
+            let Some(res) = self.next_event() else {
+                break;
+            };
+            let (ev, span) = res?;
+            let is_doc_end = matches!(ev, Event::DocumentEnd);
+            let is_stream_end = matches!(ev, Event::StreamEnd);
+            recv.on_event(ev, span);
+            if is_stream_end {
+                break;
+            }
+            if !multi && is_doc_end {
+                break;
+            }
+        }
+        Ok(())
+    }
+}
+
 /// A wrapper for different types of parsers.
 pub enum AnyParser<'input, I, T>
 where
@@ -32,6 +103,13 @@ where
         /// The name of the parser.
         name: String,
     },
+    /// A parser over a replayed event stream.
+    Replay {
+        /// The replay parser itself.
+        parser: ReplayParser<'input>,
+        /// The name of the parser.
+        name: String,
+    },
 }
 
 impl<'input, I, T> AnyParser<'input, I, T>
@@ -44,6 +122,7 @@ where
             AnyParser::String { parser, .. } => parser.get_anchor_offset(),
             AnyParser::Iter { parser, .. } => parser.get_anchor_offset(),
             AnyParser::Custom { parser, .. } => parser.get_anchor_offset(),
+            AnyParser::Replay { parser, .. } => parser.get_anchor_offset(),
         }
     }
 
@@ -52,6 +131,7 @@ where
             AnyParser::String { parser, .. } => parser.set_anchor_offset(offset),
             AnyParser::Iter { parser, .. } => parser.set_anchor_offset(offset),
             AnyParser::Custom { parser, .. } => parser.set_anchor_offset(offset),
+            AnyParser::Replay { parser, .. } => parser.set_anchor_offset(offset),
         }
     }
 }
@@ -133,6 +213,34 @@ where
         self.parsers.push(AnyParser::Custom { parser, name });
     }
 
+    /// Pushes a replay parser onto the stack.
+    pub fn push_replay_parser(&mut self, parser: ReplayParser<'input>, name: String) {
+        self.parsers.push(AnyParser::Replay { parser, name });
+    }
+
+    /// Pushes a custom parser onto the stack and primes the next event to be returned from it.
+    pub fn push_custom_parser_with_current(
+        &mut self,
+        mut parser: Parser<'input, T>,
+        name: String,
+        current: (Event<'input>, Span),
+    ) {
+        if let Some(parent) = self.parsers.last() {
+            parser.set_anchor_offset(parent.get_anchor_offset());
+        }
+        self.parsers.push(AnyParser::Custom { parser, name });
+        self.current = Some(current);
+    }
+
+    /// Returns the anchor offset that a newly pushed parser should inherit.
+    #[must_use]
+    pub fn current_anchor_offset(&self) -> usize {
+        self.parsers
+            .last()
+            .map(AnyParser::get_anchor_offset)
+            .unwrap_or(0)
+    }
+
     /// Returns the names of the parsers currently in the stack.
     #[must_use]
     pub fn stack(&self) -> Vec<String> {
@@ -141,7 +249,8 @@ where
             .map(|p| match p {
                 AnyParser::String { name, .. }
                 | AnyParser::Iter { name, .. }
-                | AnyParser::Custom { name, .. } => name.clone(),
+                | AnyParser::Custom { name, .. }
+                | AnyParser::Replay { name, .. } => name.clone(),
             })
             .collect()
     }
@@ -159,6 +268,7 @@ where
                 AnyParser::String { parser, .. } => parser.next_event(),
                 AnyParser::Iter { parser, .. } => parser.next_event(),
                 AnyParser::Custom { parser, .. } => parser.next_event(),
+                AnyParser::Replay { parser, .. } => parser.next_event(),
             };
 
             match res {
@@ -205,6 +315,7 @@ where
                         AnyParser::String { parser, .. } => parser.peek(),
                         AnyParser::Iter { parser, .. } => parser.peek(),
                         AnyParser::Custom { parser, .. } => parser.peek(),
+                        AnyParser::Replay { parser, .. } => parser.peek(),
                     };
 
                     match peek_res {
