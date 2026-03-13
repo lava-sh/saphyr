@@ -2963,6 +2963,46 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 value = (value << 4) + as_hex(c);
             }
 
+            self.skip_n_non_blank(code_length);
+
+            // Handle JSON surrogate pairs: high surrogate followed by low surrogate
+            if code_length == 4 && (0xD800..=0xDBFF).contains(&value) {
+                if self.input.peek() == '\\' && self.input.peek_nth(1) == 'u' {
+                    self.skip_n_non_blank(2);
+                    self.input.lookahead(4);
+                    let mut low_value = 0u32;
+                    for i in 0..4 {
+                        let c = self.input.peek_nth(i);
+                        if !is_hex(c) {
+                            return Err(ScanError::new_str(
+                                *start_mark,
+                                "while parsing a quoted scalar, did not find expected hexadecimal number for low surrogate",
+                            ));
+                        }
+                        low_value = (low_value << 4) + as_hex(c);
+                    }
+                    if (0xDC00..=0xDFFF).contains(&low_value) {
+                        value = 0x10000 + (((value - 0xD800) << 10) | (low_value - 0xDC00));
+                        self.skip_n_non_blank(4);
+                    } else {
+                        return Err(ScanError::new_str(
+                            *start_mark,
+                            "while parsing a quoted scalar, found invalid low surrogate",
+                        ));
+                    }
+                } else {
+                    return Err(ScanError::new_str(
+                        *start_mark,
+                        "while parsing a quoted scalar, found high surrogate without following low surrogate",
+                    ));
+                }
+            } else if code_length == 4 && (0xDC00..=0xDFFF).contains(&value) {
+                return Err(ScanError::new_str(
+                    *start_mark,
+                    "while parsing a quoted scalar, found unpaired low surrogate",
+                ));
+            }
+
             let Some(ch) = char::from_u32(value) else {
                 return Err(ScanError::new_str(
                     *start_mark,
@@ -2970,8 +3010,6 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 ));
             };
             ret = ch;
-
-            self.skip_n_non_blank(code_length);
         }
         Ok(ret)
     }

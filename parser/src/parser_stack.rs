@@ -14,6 +14,7 @@ pub struct ReplayParser<'input> {
 }
 
 impl<'input> ReplayParser<'input> {
+    /// Creates a new `ReplayParser`.
     #[must_use]
     pub fn new(events: Vec<(Event<'input>, Span)>, anchor_offset: usize) -> Self {
         Self {
@@ -24,11 +25,13 @@ impl<'input> ReplayParser<'input> {
         }
     }
 
+    /// Get the current anchor offset count.
     #[must_use]
     pub fn get_anchor_offset(&self) -> usize {
         self.anchor_offset
     }
 
+    /// Set the current anchor offset count.
     pub fn set_anchor_offset(&mut self, offset: usize) {
         self.anchor_offset = offset;
     }

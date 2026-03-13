@@ -301,8 +301,7 @@ fn test_include_resolver() {
     
     stack.set_resolver(|name| {
         if name == "inc1" {
-            let p = Parser::new_from_str("b: 2");
-            Ok(saphyr_parser_bw::parser_stack::AnyParser::String { parser: p, name: name.to_string() })
+            Ok("b: 2".to_string())
         } else {
             Err(saphyr_parser_bw::ScanError::new(saphyr_parser_bw::Marker::new(0, 1, 0), "Not found".to_string()))
         }
