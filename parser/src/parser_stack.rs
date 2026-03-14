@@ -180,15 +180,25 @@ where
     pub fn resolve(&mut self, include_str: &str) -> Result<(), ScanError> {
         if let Some(resolver) = &mut self.include_resolver {
             let content = resolver(include_str)?;
-            let text: &'input str = Box::leak(content.into_boxed_str());
-            let mut parser = Parser::new_from_str(text);
+            let mut parser = Parser::new_from_iter(content.chars().collect::<Vec<_>>().into_iter());
             if let Some(parent) = self.parsers.last() {
                 parser.set_anchor_offset(parent.get_anchor_offset());
             }
-            self.parsers.push(AnyParser::String { parser, name: include_str.into() });
+            let mut events = Vec::new();
+            while let Some(event) = parser.next_event() {
+                events.push(event?);
+            }
+
+            self.parsers.push(AnyParser::Replay {
+                parser: ReplayParser::new(events, parser.get_anchor_offset()),
+                name: include_str.into(),
+            });
             Ok(())
         } else {
-            Err(ScanError::new(crate::scanner::Marker::new(0, 1, 0), String::from("No include resolver set for parser stack.")))
+            Err(ScanError::new(
+                crate::scanner::Marker::new(0, 1, 0),
+                String::from("No include resolver set for parser stack."),
+            ))
         }
     }
 
@@ -201,7 +211,11 @@ where
     }
 
     /// Pushes an iterator parser onto the stack.
-    pub fn push_iter_parser(&mut self, mut parser: Parser<'static, BufferedInput<I>>, name: String) {
+    pub fn push_iter_parser(
+        &mut self,
+        mut parser: Parser<'static, BufferedInput<I>>,
+        name: String,
+    ) {
         if let Some(parent) = self.parsers.last() {
             parser.set_anchor_offset(parent.get_anchor_offset());
         }
@@ -329,12 +343,17 @@ where
                             }
                         }
                         _ => {
-                            return Err(ScanError::new_str(span.start, "multiple documents not supported here"));
+                            return Err(ScanError::new_str(
+                                span.start,
+                                "multiple documents not supported here",
+                            ));
                         }
                     }
                 }
                 Some(Ok(event)) => {
-                    if self.parsers.len() > 1 && matches!(event.0, Event::StreamStart | Event::DocumentStart(_)) {
+                    if self.parsers.len() > 1
+                        && matches!(event.0, Event::StreamStart | Event::DocumentStart(_))
+                    {
                         continue;
                     }
                     return Ok(event);
@@ -404,7 +423,7 @@ where
             let Some(res) = self.next_event() else {
                 break;
             };
-            
+
             let (ev, span) = res?;
 
             // Track if we need to stop based on `multi`

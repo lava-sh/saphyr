@@ -43,10 +43,12 @@ impl<T: Iterator<Item = char>> BufferedInput<T> {
 impl<T: Iterator<Item = char>> Input for BufferedInput<T> {
     #[inline]
     fn lookahead(&mut self, count: usize) {
-        if self.buffer.len() >= count {
+        let target = count.min(BUFFER_LEN);
+
+        if self.buffer.len() >= target {
             return;
         }
-        for _ in 0..(count - self.buffer.len()) {
+        for _ in 0..(target - self.buffer.len()) {
             self.buffer
                 .push_back(self.input.next().unwrap_or('\0'))
                 .unwrap();
@@ -109,5 +111,23 @@ impl<T: Iterator<Item = char>> BorrowedInput<'static> for BufferedInput<T> {
     #[inline]
     fn slice_borrowed(&self, _start: usize, _end: usize) -> Option<&'static str> {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lookahead_larger_than_buffer_is_clamped() {
+        let mut input = BufferedInput::new("abc".chars());
+
+        input.lookahead(BUFFER_LEN + 8);
+
+        assert_eq!(input.buflen(), BUFFER_LEN);
+        assert_eq!(input.peek(), 'a');
+        assert_eq!(input.peek_nth(1), 'b');
+        assert_eq!(input.peek_nth(2), 'c');
+        assert_eq!(input.peek_nth(3), '\0');
     }
 }

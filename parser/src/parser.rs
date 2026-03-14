@@ -822,16 +822,25 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
         Ok((Event::DocumentEnd, span))
     }
 
-    fn register_anchor(&mut self, name: Cow<'input, str>, _: &Span) -> usize {
+    fn register_anchor(
+        &mut self,
+        name: Cow<'input, str>,
+        mark: &Span,
+    ) -> Result<usize, ScanError> {
         // anchors can be overridden/reused
         // if self.anchors.contains_key(name) {
         //     return Err(ScanError::new_str(*mark,
         //         "while parsing anchor, found duplicated anchor"));
         // }
         let new_id = self.anchor_id_count;
-        self.anchor_id_count += 1;
+        self.anchor_id_count = self.anchor_id_count.checked_add(1).ok_or_else(|| {
+            ScanError::new_str(
+                mark.start,
+                "while parsing anchor, anchor count exceeded supported limit",
+            )
+        })?;
         self.anchors.insert(name, new_id);
-        new_id
+        Ok(new_id)
     }
 
     #[allow(clippy::too_many_lines)]
@@ -859,7 +868,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             }
             Token(_, TokenType::Anchor(_)) => {
                 if let Token(span, TokenType::Anchor(name)) = self.fetch_token() {
-                    anchor_id = self.register_anchor(name, &span);
+                    anchor_id = self.register_anchor(name, &span)?;
                     if let TokenType::Tag(..) = self.peek_token()?.1 {
                         if let TokenType::Tag(handle, suffix) = self.fetch_token().1 {
                             tag = Some(self.resolve_tag(span, &handle, suffix)?);
@@ -876,7 +885,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
                     tag = Some(self.resolve_tag(mark, &handle, suffix)?);
                     if let TokenType::Anchor(_) = &self.peek_token()?.1 {
                         if let Token(mark, TokenType::Anchor(name)) = self.fetch_token() {
-                            anchor_id = self.register_anchor(name, &mark);
+                            anchor_id = self.register_anchor(name, &mark)?;
                         } else {
                             unreachable!()
                         }
