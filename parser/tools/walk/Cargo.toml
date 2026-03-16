@@ -21,3 +21,6 @@ miette = { workspace = true }
 rustyline = { workspace = true }
 saphyr = { workspace = true }
 thiserror = { workspace = true }
+
+[lints]
+workspace = true

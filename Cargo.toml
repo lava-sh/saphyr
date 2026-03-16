@@ -47,4 +47,5 @@ saphyr-parser = { path = "parser", package = "saphyr-parser-bw" }
 thiserror = { version = ">= 2.0.15, <= 2.0.18", default-features = false }
 
 [workspace.lints.rust]
+unsafe_code = "forbid"
 unsafe_op_in_unsafe_fn = "deny"
