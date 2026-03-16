@@ -78,6 +78,11 @@ This parser supports explicit handling for JSON-style Unicode surrogate pairs in
 * `\uXXXX` escapes that encode a high surrogate are now required to be followed immediately by a valid low surrogate escape, and both escapes are combined into the corresponding Unicode scalar value.
 * Unpaired high surrogates, unpaired low surrogates, and reversed surrogate pairs are now rejected during scanning instead of being treated as generic invalid Unicode escape codes.
 
+## Parser stack
+
+There is some supporting code to implement !include easier, mostly where implementing outside this crate would hit
+permission limits for anchor id sequences.
+
 
 # saphyr-parser
 
