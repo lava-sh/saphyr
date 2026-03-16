@@ -1,3 +1,5 @@
+[![CI](https://github.com/bourumir-wyngs/saphyr/actions/workflows/ci.yml/badge.svg)](https://github.com/bourumir-wyngs/saphyr/actions/workflows/ci.yml)
+
 # This crate contains the fork of saphyr-parser intended to work with serde-saphyr
 The crate is otherwise identical to the upstream crate [saphyr](https://crates.io/crates/saphyr). If you want
 to use it directly, please refer to the documentation there. 
