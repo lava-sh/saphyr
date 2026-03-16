@@ -10,7 +10,7 @@ fn test_valid_surrogate_pair() {
         }
         events.push(event.0);
     }
-    
+
     // Check that we got a single Scalar event with the correct character
     let mut found = false;
     for ev in events {

@@ -10,7 +10,7 @@ use alloc::{
 };
 
 use hashlink::LinkedHashMap;
-use saphyr_parser::{BufferedInput, Parser, ScanError, ScalarStyle, Span, Tag};
+use saphyr_parser::{BufferedInput, Parser, ScalarStyle, ScanError, Span, Tag};
 
 use crate::{
     index::SafelyIndexMut, loader::YamlLoader, Accessor, LoadableYamlNode, SafelyIndex,

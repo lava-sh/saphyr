@@ -1,5 +1,5 @@
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
+use saphyr_parser_bw as saphyr_parser;
 
 #[allow(clippy::unreachable)]
 #[test]

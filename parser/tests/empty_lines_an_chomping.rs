@@ -1,5 +1,5 @@
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
+use saphyr_parser_bw as saphyr_parser;
 
 #[allow(clippy::unreachable)]
 #[test]
@@ -24,7 +24,7 @@ fn yaml_xv9v_empty_lines_and_chomping() {
             }
             Ok((Event::Scalar(cow, style, size, _tag), span)) => {
                 println!("{:?}|{:?}|{:?}|{:?}", cow, style, size, span);
-            },
+            }
             _ => {}
         }
     }

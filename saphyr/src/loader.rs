@@ -204,7 +204,9 @@ pub trait LoadableYamlNode<'input>: Clone + core::hash::Hash + Eq {
     /// Returns [`ScanError`] when loading fails.
     ///
     /// [`load_from_str`]: LoadableYamlNode::load_from_str
-    fn load_from_parser<I: BorrowedInput<'input>>(parser: &mut Parser<'input, I>) -> Result<Vec<Self>, ScanError> {
+    fn load_from_parser<I: BorrowedInput<'input>>(
+        parser: &mut Parser<'input, I>,
+    ) -> Result<Vec<Self>, ScanError> {
         let mut loader = YamlLoader::default();
         parser.load(&mut loader, true)?;
         Ok(loader.into_documents())

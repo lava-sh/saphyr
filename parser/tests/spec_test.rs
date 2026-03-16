@@ -1,10 +1,9 @@
-
 #![allow(dead_code)]
 #![allow(non_upper_case_globals)]
 extern crate saphyr_parser_bw;
 
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, EventReceiver, Parser, ScalarStyle};
+use saphyr_parser_bw as saphyr_parser;
 
 // These names match the names used in the C++ test suite.
 #[allow(clippy::enum_variant_names)]

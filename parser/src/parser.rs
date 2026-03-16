@@ -825,11 +825,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
         Ok((Event::DocumentEnd, span))
     }
 
-    fn register_anchor(
-        &mut self,
-        name: Cow<'input, str>,
-        mark: &Span,
-    ) -> Result<usize, ScanError> {
+    fn register_anchor(&mut self, name: Cow<'input, str>, mark: &Span) -> Result<usize, ScanError> {
         // anchors can be overridden/reused
         // if self.anchors.contains_key(name) {
         //     return Err(ScanError::new_str(*mark,
@@ -941,9 +937,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
                     State::FlowMappingFirstKey
                     | State::FlowMappingKey
                     | State::FlowMappingValue
-                    | State::FlowMappingEmptyValue => {
-                        "unexpected EOF while parsing a flow mapping"
-                    }
+                    | State::FlowMappingEmptyValue => "unexpected EOF while parsing a flow mapping",
                     State::FlowSequenceEntryMappingKey
                     | State::FlowSequenceEntryMappingValue
                     | State::FlowSequenceEntryMappingEnd(_) => {

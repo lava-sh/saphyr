@@ -1,4 +1,4 @@
-use saphyr_parser_bw::{Parser, Event, EventReceiver};
+use saphyr_parser_bw::{Event, EventReceiver, Parser};
 
 struct Collector(Vec<Event<'static>>);
 impl EventReceiver<'static> for Collector {
@@ -13,7 +13,7 @@ fn test_unclosed_flow_sequence_at_eof() {
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
-    
+
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
@@ -28,7 +28,7 @@ fn test_unclosed_flow_mapping_at_eof() {
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
-    
+
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
@@ -43,7 +43,7 @@ fn test_unclosed_implicit_flow_mapping_at_eof() {
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
-    
+
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());
@@ -58,7 +58,7 @@ fn test_unclosed_quoted_scalar_at_eof() {
     let mut parser = Parser::new_from_str(input);
     let mut collector = Collector(Vec::new());
     let res = parser.load(&mut collector, false);
-    
+
     println!("Events: {:?}", collector.0);
     println!("Result: {:?}", res);
     assert!(res.is_err());

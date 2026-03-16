@@ -1,6 +1,6 @@
 use saphyr::Marker;
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScalarStyle, ScanError, Span};
+use saphyr_parser_bw as saphyr_parser;
 
 /// Run the parser through the string.
 ///
@@ -252,28 +252,16 @@ fn test_issue14() {
     // https://github.com/saphyr-rs/saphyr/issues/14
     let s = "{---";
     let Err(error) = run_parser(s) else { panic!() };
-    assert_eq!(
-        error.info(),
-        "unclosed bracket '{'"
-    );
-    assert_eq!(
-        error.marker().index(),
-        0
-    );
+    assert_eq!(error.info(), "unclosed bracket '{'");
+    assert_eq!(error.marker().index(), 0);
 }
 
 #[test]
 fn test_issue14_v2() {
     let s = "{...";
     let Err(error) = run_parser(s) else { panic!() };
-    assert_eq!(
-        error.info(),
-        "unclosed bracket '{'"
-    );
-    assert_eq!(
-        error.marker().index(),
-        0
-    );
+    assert_eq!(error.info(), "unclosed bracket '{'");
+    assert_eq!(error.marker().index(), 0);
 }
 
 #[test]
@@ -425,7 +413,12 @@ fn test_issue84() {
             Event::Scalar("hello".into(), ScalarStyle::Plain, 0, None),
             Event::MappingStart(0, None),
             Event::Scalar("world".into(), ScalarStyle::Plain, 0, None),
-            Event::Scalar("this is a string --- still a string".into(), ScalarStyle::Plain, 0, None),
+            Event::Scalar(
+                "this is a string --- still a string".into(),
+                ScalarStyle::Plain,
+                0,
+                None
+            ),
             Event::MappingEnd,
             Event::MappingEnd,
             Event::DocumentEnd,

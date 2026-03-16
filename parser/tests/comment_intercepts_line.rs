@@ -1,5 +1,5 @@
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser};
+use saphyr_parser_bw as saphyr_parser;
 
 /// Comment intercepting the multiline text is invalid YAML (case BS4K)
 #[test]
@@ -13,8 +13,10 @@ fn bs4k_comment_between_plain_scalar_lines_should_fail() {
                 unreachable!("Document end before any error");
             }
             Err(err) => {
-                assert_eq!(err.info(), "comment intercepting the multiline text",
-                           "BS4K: comment intercepting the multiline text is invalid YAML"
+                assert_eq!(
+                    err.info(),
+                    "comment intercepting the multiline text",
+                    "BS4K: comment intercepting the multiline text is invalid YAML"
                 );
                 break; // fine
             }

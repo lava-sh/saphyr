@@ -1,6 +1,6 @@
 use core::str;
-use saphyr_parser_bw as saphyr_parser;
 use saphyr_parser::{Event, Parser, ScanError};
+use saphyr_parser_bw as saphyr_parser;
 
 /// Run the parser through the string.
 ///

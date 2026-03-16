@@ -417,7 +417,9 @@ impl Input for StrInput<'_> {
     }
 
     fn fetch_while_is_yaml_non_space(&mut self, out: &mut String) -> usize {
-        let byte_pos = self.buffer.chars()
+        let byte_pos = self
+            .buffer
+            .chars()
             .take_while(|c| crate::char_traits::is_yaml_non_space(*c))
             .map(char::len_utf8)
             .sum();
@@ -429,7 +431,12 @@ impl Input for StrInput<'_> {
         byte_pos
     }
 
-    fn fetch_plain_scalar_chunk(&mut self, out: &mut String, _count: usize, flow_level_gt_0: bool) -> (bool, usize) {
+    fn fetch_plain_scalar_chunk(
+        &mut self,
+        out: &mut String,
+        _count: usize,
+        flow_level_gt_0: bool,
+    ) -> (bool, usize) {
         let bytes = self.buffer.as_bytes();
         let len = bytes.len();
         let mut byte_pos = 0;
@@ -458,11 +465,12 @@ impl Input for StrInput<'_> {
                     // ASCII optimization: if next_byte >= 0x80, it is not blank/breakz/flow
                     let is_stop = if next_byte < 0x80 {
                         let nc = next_byte as char;
-                        crate::char_traits::is_blank_or_breakz(nc) || (flow_level_gt_0 && crate::char_traits::is_flow(nc))
+                        crate::char_traits::is_blank_or_breakz(nc)
+                            || (flow_level_gt_0 && crate::char_traits::is_flow(nc))
                     } else {
                         false
                     };
-                    
+
                     if is_stop {
                         out.push_str(&self.buffer[..byte_pos]);
                         self.buffer = &self.buffer[byte_pos..];

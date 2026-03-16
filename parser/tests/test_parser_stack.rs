@@ -1,10 +1,14 @@
 extern crate alloc;
 
-use saphyr_parser_bw::{
-    parser_stack::ParserStack, Event, Parser, ParserTrait, StrInput, SpannedEventReceiver, Span
+use alloc::{
+    string::{String, ToString},
+    vec,
+    vec::Vec,
 };
 use core::iter::Empty;
-use alloc::{string::{String, ToString}, vec, vec::Vec};
+use saphyr_parser_bw::{
+    parser_stack::ParserStack, Event, Parser, ParserTrait, Span, SpannedEventReceiver, StrInput,
+};
 
 type MyStack<'a> = ParserStack<'a, Empty<char>, StrInput<'a>>;
 
@@ -27,18 +31,21 @@ fn collect_events<'a>(stack: &mut MyStack<'a>) -> Result<Vec<Event<'a>>, String>
 }
 
 fn format_events(events: &[Event]) -> Vec<String> {
-    events.iter().map(|e| match e {
-        Event::StreamStart => "StreamStart".to_string(),
-        Event::StreamEnd => "StreamEnd".to_string(),
-        Event::DocumentStart(_) => "DocStart".to_string(),
-        Event::DocumentEnd => "DocEnd".to_string(),
-        Event::Scalar(val, _, _, _) => alloc::format!("Scalar({})", val.as_ref()),
-        Event::MappingStart(_, _) => "MapStart".to_string(),
-        Event::MappingEnd => "MapEnd".to_string(),
-        Event::SequenceStart(_, _) => "SeqStart".to_string(),
-        Event::SequenceEnd => "SeqEnd".to_string(),
-        _ => "Other".to_string(),
-    }).collect()
+    events
+        .iter()
+        .map(|e| match e {
+            Event::StreamStart => "StreamStart".to_string(),
+            Event::StreamEnd => "StreamEnd".to_string(),
+            Event::DocumentStart(_) => "DocStart".to_string(),
+            Event::DocumentEnd => "DocEnd".to_string(),
+            Event::Scalar(val, _, _, _) => alloc::format!("Scalar({})", val.as_ref()),
+            Event::MappingStart(_, _) => "MapStart".to_string(),
+            Event::MappingEnd => "MapEnd".to_string(),
+            Event::SequenceStart(_, _) => "SeqStart".to_string(),
+            Event::SequenceEnd => "SeqEnd".to_string(),
+            _ => "Other".to_string(),
+        })
+        .collect()
 }
 
 #[test]
@@ -48,11 +55,18 @@ fn test_single_parser() {
 
     let events = collect_events(&mut stack).unwrap();
     let names = format_events(&events);
-    
+
     assert_eq!(
         names,
         vec![
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(b)", "MapEnd", "DocEnd", "StreamEnd"
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(b)",
+            "MapEnd",
+            "DocEnd",
+            "StreamEnd"
         ]
     );
 }
@@ -67,12 +81,22 @@ fn test_two_parsers_switching() {
 
     let events = collect_events(&mut stack).unwrap();
     let names = format_events(&events);
-    
+
     assert_eq!(
         names,
         vec![
-            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd", "StreamEnd"
+            "MapStart",
+            "Scalar(b)",
+            "Scalar(2)",
+            "MapEnd",
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(1)",
+            "MapEnd",
+            "DocEnd",
+            "StreamEnd"
         ]
     );
 }
@@ -86,7 +110,9 @@ fn test_two_parsers_second_has_two_docs_error() {
 
     let res = collect_events(&mut stack);
     assert!(res.is_err());
-    assert!(res.unwrap_err().contains("multiple documents not supported here"));
+    assert!(res
+        .unwrap_err()
+        .contains("multiple documents not supported here"));
 }
 
 #[test]
@@ -99,16 +125,31 @@ fn test_two_parsers_first_has_multiple_docs_fine() {
 
     let events = collect_events(&mut stack).unwrap();
     let names = format_events(&events);
-    
+
     assert_eq!(
         names,
         vec![
             // p2
-            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            "MapStart",
+            "Scalar(b)",
+            "Scalar(2)",
+            "MapEnd",
             // p1 doc 1
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd",
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(1)",
+            "MapEnd",
+            "DocEnd",
             // p1 doc 2
-            "DocStart", "MapStart", "Scalar(c)", "Scalar(3)", "MapEnd", "DocEnd", "StreamEnd"
+            "DocStart",
+            "MapStart",
+            "Scalar(c)",
+            "Scalar(3)",
+            "MapEnd",
+            "DocEnd",
+            "StreamEnd"
         ]
     );
 }
@@ -137,16 +178,18 @@ fn test_three_parsers_dynamic_adding() {
     let names = format_events(&events);
 
     // p3 content:
-    let mut expected = vec![
-        "MapStart", "Scalar(p3)", "Scalar(3)", "MapEnd"
-    ];
+    let mut expected = vec!["MapStart", "Scalar(p3)", "Scalar(3)", "MapEnd"];
     // p2 rest (already yielded MapStart, so now it's Scalar(p2)):
-    expected.extend(vec![
-        "Scalar(p2)", "Scalar(2)", "MapEnd"
-    ]);
+    expected.extend(vec!["Scalar(p2)", "Scalar(2)", "MapEnd"]);
     // p1 rest (already yielded StreamStart):
     expected.extend(vec![
-        "DocStart", "MapStart", "Scalar(p1)", "Scalar(1)", "MapEnd", "DocEnd", "StreamEnd"
+        "DocStart",
+        "MapStart",
+        "Scalar(p1)",
+        "Scalar(1)",
+        "MapEnd",
+        "DocEnd",
+        "StreamEnd",
     ]);
 
     let expected_names: Vec<String> = expected.into_iter().map(|s| s.to_string()).collect();
@@ -156,7 +199,10 @@ fn test_three_parsers_dynamic_adding() {
 #[test]
 fn test_anchor_id_propagation() {
     let mut stack: MyStack = ParserStack::new();
-    stack.push_str_parser(Parser::new_from_str("k1: &a v1\nk3: &c v3"), "p1".to_string());
+    stack.push_str_parser(
+        Parser::new_from_str("k1: &a v1\nk3: &c v3"),
+        "p1".to_string(),
+    );
 
     let mut events = Vec::new();
 
@@ -167,9 +213,13 @@ fn test_anchor_id_propagation() {
             if val.as_ref() == "v1" {
                 assert_eq!(*anchor_id, 1, "First anchor should have ID 1");
                 true
-            } else { false }
-        } else { false };
-        
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+
         events.push(ev);
         if is_v1 {
             break;
@@ -195,14 +245,23 @@ fn test_anchor_id_propagation() {
     }
 
     // Verify anchor IDs for v2 and v3
-    let v2_ev = events.iter().find(|e| matches!(e, Event::Scalar(v, _, _, _) if v.as_ref() == "v2")).unwrap();
+    let v2_ev = events
+        .iter()
+        .find(|e| matches!(e, Event::Scalar(v, _, _, _) if v.as_ref() == "v2"))
+        .unwrap();
     if let Event::Scalar(_, _, id, _) = v2_ev {
         assert_eq!(*id, 2, "Second anchor (from inner parser) should have ID 2");
     }
 
-    let v3_ev = events.iter().find(|e| matches!(e, Event::Scalar(v, _, _, _) if v.as_ref() == "v3")).unwrap();
+    let v3_ev = events
+        .iter()
+        .find(|e| matches!(e, Event::Scalar(v, _, _, _) if v.as_ref() == "v3"))
+        .unwrap();
     if let Event::Scalar(_, _, id, _) = v3_ev {
-        assert_eq!(*id, 3, "Third anchor (from parent parser after inner) should have ID 3");
+        assert_eq!(
+            *id, 3,
+            "Third anchor (from parent parser after inner) should have ID 3"
+        );
     }
 }
 
@@ -223,21 +282,36 @@ fn test_parser_stack_load() {
     stack.push_str_parser(Parser::new_from_str("b: 2"), "p2".to_string());
 
     let mut recv = TestReceiver { events: Vec::new() };
-    
+
     // Load with multi = true
     stack.load(&mut recv, true).unwrap();
 
     let names = format_events(&recv.events);
-    
+
     assert_eq!(
         names,
         vec![
             // p2
-            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            "MapStart",
+            "Scalar(b)",
+            "Scalar(2)",
+            "MapEnd",
             // p1 doc 1
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd",
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(1)",
+            "MapEnd",
+            "DocEnd",
             // p1 doc 2
-            "DocStart", "MapStart", "Scalar(c)", "Scalar(3)", "MapEnd", "DocEnd", "StreamEnd"
+            "DocStart",
+            "MapStart",
+            "Scalar(c)",
+            "Scalar(3)",
+            "MapEnd",
+            "DocEnd",
+            "StreamEnd"
         ]
     );
 }
@@ -249,27 +323,36 @@ fn test_parser_stack_load_single() {
     stack.push_str_parser(Parser::new_from_str("b: 2"), "p2".to_string());
 
     let mut recv = TestReceiver { events: Vec::new() };
-    
+
     // Load with multi = false
     stack.load(&mut recv, false).unwrap();
 
     let names = format_events(&recv.events);
-    
+
     assert_eq!(
         names,
         vec![
             // p2 (inner document doesn't trigger multi check because the document end logic applies based on the event)
             // Wait, multi=false means we stop after the first DocumentEnd.
             // p2 ends with a DocumentEnd internally but ParserStack doesn't emit DocumentEnd for inner parsers?
-            // Actually, wait, let's see how format_events looks for p2 in previous test: 
+            // Actually, wait, let's see how format_events looks for p2 in previous test:
             // "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd"
             // There is no DocEnd for p2 in the output of ParserStack!
             // Therefore, load with multi=false will stop after p1's FIRST DocEnd!
             // Wait, so it will yield:
             // p2
-            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
+            "MapStart",
+            "Scalar(b)",
+            "Scalar(2)",
+            "MapEnd",
             // p1 doc 1
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd"
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(1)",
+            "MapEnd",
+            "DocEnd"
         ]
     );
 }
@@ -278,18 +361,25 @@ fn test_parser_stack_load_single() {
 fn test_iterator_impl() {
     let mut stack: MyStack = ParserStack::new();
     stack.push_str_parser(Parser::new_from_str("a: b"), "p1".to_string());
-    
+
     let mut events = Vec::new();
     for ev in stack {
         let (e, _) = ev.unwrap();
         events.push(e);
     }
-    
+
     let names = format_events(&events);
     assert_eq!(
         names,
         vec![
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(b)", "MapEnd", "DocEnd", "StreamEnd"
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(b)",
+            "MapEnd",
+            "DocEnd",
+            "StreamEnd"
         ]
     );
 }
@@ -298,12 +388,15 @@ fn test_iterator_impl() {
 fn test_include_resolver() {
     let mut stack: MyStack = ParserStack::new();
     stack.push_str_parser(Parser::new_from_str("a: 1"), "p1".to_string());
-    
+
     stack.set_resolver(|name| {
         if name == "inc1" {
             Ok("b: 2".to_string())
         } else {
-            Err(saphyr_parser_bw::ScanError::new(saphyr_parser_bw::Marker::new(0, 1, 0), "Not found".to_string()))
+            Err(saphyr_parser_bw::ScanError::new(
+                saphyr_parser_bw::Marker::new(0, 1, 0),
+                "Not found".to_string(),
+            ))
         }
     });
 
@@ -315,8 +408,18 @@ fn test_include_resolver() {
     assert_eq!(
         names,
         vec![
-            "MapStart", "Scalar(b)", "Scalar(2)", "MapEnd",
-            "StreamStart", "DocStart", "MapStart", "Scalar(a)", "Scalar(1)", "MapEnd", "DocEnd", "StreamEnd"
+            "MapStart",
+            "Scalar(b)",
+            "Scalar(2)",
+            "MapEnd",
+            "StreamStart",
+            "DocStart",
+            "MapStart",
+            "Scalar(a)",
+            "Scalar(1)",
+            "MapEnd",
+            "DocEnd",
+            "StreamEnd"
         ]
     );
 }
