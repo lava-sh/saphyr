@@ -177,6 +177,10 @@ where
     }
 
     /// Resolves an include string using the include resolver.
+    ///
+    /// # Errors
+    /// Returns `ScanError` if no resolver is configured, include resolution fails, or the
+    /// included content cannot be parsed.
     pub fn resolve(&mut self, include_str: &str) -> Result<(), ScanError> {
         if let Some(resolver) = &mut self.include_resolver {
             let content = resolver(include_str)?;
@@ -252,10 +256,7 @@ where
     /// Returns the anchor offset that a newly pushed parser should inherit.
     #[must_use]
     pub fn current_anchor_offset(&self) -> usize {
-        self.parsers
-            .last()
-            .map(AnyParser::get_anchor_offset)
-            .unwrap_or(0)
+        self.parsers.last().map_or(0, AnyParser::get_anchor_offset)
     }
 
     /// Returns the names of the parsers currently in the stack.

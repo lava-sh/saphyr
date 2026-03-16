@@ -288,6 +288,9 @@ pub trait ParserTrait<'input> {
     fn next_event(&mut self) -> Option<ParseResult<'input>>;
 
     /// Load the YAML from the stream in `self`, pushing events into `recv`.
+    ///
+    /// # Errors
+    /// Returns `ScanError` when scanning or parsing the stream fails.
     fn load<R: SpannedEventReceiver<'input>>(
         &mut self,
         recv: &mut R,

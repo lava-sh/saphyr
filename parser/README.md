@@ -73,6 +73,12 @@ This is achieved via the `BorrowedInput` trait and using `Cow<'input, str>` in `
 When parsing from a string, tokens like scalars, anchors, and tag directives borrow directly from the input string instead of allocating new `String`s, significantly reducing memory allocations and improving performance. This is quite heavy change but helped with performance dramatically.
 Streaming inputs continue to work as before, owning their data.
 
+## JSON-style Unicode surrogate pairs
+This parser supports explicit handling for JSON-style Unicode surrogate pairs in quoted scalar escape sequences.
+* `\uXXXX` escapes that encode a high surrogate are now required to be followed immediately by a valid low surrogate escape, and both escapes are combined into the corresponding Unicode scalar value.
+* Unpaired high surrogates, unpaired low surrogates, and reversed surrogate pairs are now rejected during scanning instead of being treated as generic invalid Unicode escape codes.
+
+
 # saphyr-parser
 
 [saphyr-parser](https://github.com/saphyr-rs/saphyr-parser) is a fully compliant YAML 1.2
@@ -119,13 +125,11 @@ You can find licences in the [`.licenses`](.licenses) subfolder.
 
 ## Contribution
 
-[Fork this repository](https://github.com/saphyr-rs/saphyr-parser/fork) and
-[Create a Pull Request on Github](https://github.com/saphyr-rs/saphyr-parser/compare/master...saphyr-rs:saphyr-parser:master).
-You may need to click on "compare across forks" and select your fork's branch.
-
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
+be dual licensed as above, without any additional terms or conditions. 
+
+Do not forget pull requests are expected against dev/saphyr-parser, not master. 
 
 ## Links
 

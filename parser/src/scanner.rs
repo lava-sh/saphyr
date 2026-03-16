@@ -624,7 +624,7 @@ impl FlowScalarBuf {
     fn as_owned_mut(&mut self) -> Option<&mut String> {
         match self {
             Self::Owned(s) => Some(s),
-            _ => None,
+            Self::Borrowed { .. } => None,
         }
     }
 
@@ -1640,7 +1640,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         }
     }
 
-    /// Original owned-only tag scanning path for inputs without byte_offset support.
+    /// Original owned-only tag scanning path for inputs without `byte_offset` support.
     fn scan_tag_owned(&mut self, start_mark: &Marker) -> Result<Token<'input>, ScanError> {
         let mut handle = String::new();
         let mut suffix;
@@ -1719,17 +1719,16 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             return Ok(Cow::Owned(self.scan_tag_handle(false, mark)?));
         };
 
-        match self.try_borrow_slice(start, end) {
-            Some(slice) => Ok(Cow::Borrowed(slice)),
-            None => {
-                let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
-                    ScanError::new_str(
-                        *mark,
-                        "internal error: input advertised slicing but did not provide a slice",
-                    )
-                })?;
-                Ok(Cow::Owned(slice.to_owned()))
-            }
+        if let Some(slice) = self.try_borrow_slice(start, end) {
+            Ok(Cow::Borrowed(slice))
+        } else {
+            let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                ScanError::new_str(
+                    *mark,
+                    "internal error: input advertised slicing but did not provide a slice",
+                )
+            })?;
+            Ok(Cow::Owned(slice.to_owned()))
         }
     }
 
@@ -1774,17 +1773,16 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             return Ok(Cow::Owned(self.scan_tag_shorthand_suffix(false, false, "", mark)?));
         };
 
-        match self.try_borrow_slice(start, end) {
-            Some(slice) => Ok(Cow::Borrowed(slice)),
-            None => {
-                let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
-                    ScanError::new_str(
-                        *mark,
-                        "internal error: input advertised slicing but did not provide a slice",
-                    )
-                })?;
-                Ok(Cow::Owned(slice.to_owned()))
-            }
+        if let Some(slice) = self.try_borrow_slice(start, end) {
+            Ok(Cow::Borrowed(slice))
+        } else {
+            let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                ScanError::new_str(
+                    *mark,
+                    "internal error: input advertised slicing but did not provide a slice",
+                )
+            })?;
+            Ok(Cow::Owned(slice.to_owned()))
         }
     }
 
@@ -2805,17 +2803,16 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
                 if pending_ws_start.is_some() {
                     end = pending_ws_end;
                 }
-                match self.try_borrow_slice(start, end) {
-                    Some(slice) => Cow::Borrowed(slice),
-                    None => {
-                        let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
-                            ScanError::new_str(
-                                start_mark,
-                                "internal error: input advertised offsets but did not provide a slice",
-                            )
-                        })?;
-                        Cow::Owned(slice.to_owned())
-                    }
+                if let Some(slice) = self.try_borrow_slice(start, end) {
+                    Cow::Borrowed(slice)
+                } else {
+                    let slice = self.input.slice_bytes(start, end).ok_or_else(|| {
+                        ScanError::new_str(
+                            start_mark,
+                            "internal error: input advertised offsets but did not provide a slice",
+                        )
+                    })?;
+                    Cow::Owned(slice.to_owned())
                 }
             }
         };
@@ -3707,8 +3704,7 @@ mod test {
         let key_value = key_value.expect("expected to find a scalar after Key token");
         assert!(
             matches!(key_value, Cow::Borrowed("mykey")),
-            "key should be borrowed, got: {:?}",
-            key_value
+            "key should be borrowed, got: {key_value:?}"
         );
     }
 
@@ -3739,8 +3735,7 @@ mod test {
         let key_value = key_value.expect("expected to find a scalar after Key token");
         assert!(
             matches!(key_value, Cow::Borrowed("mykey")),
-            "quoted key should be borrowed when verbatim, got: {:?}",
-            key_value
+            "quoted key should be borrowed when verbatim, got: {key_value:?}"
         );
     }
 
@@ -3757,13 +3752,11 @@ mod test {
             if let TokenType::Tag(handle, suffix) = tok.1 {
                 assert!(
                     matches!(handle, Cow::Borrowed("!!")),
-                    "tag handle should be borrowed, got: {:?}",
-                    handle
+                    "tag handle should be borrowed, got: {handle:?}"
                 );
                 assert!(
                     matches!(suffix, Cow::Borrowed("str")),
-                    "tag suffix should be borrowed, got: {:?}",
-                    suffix
+                    "tag suffix should be borrowed, got: {suffix:?}"
                 );
                 break;
             }
@@ -3783,13 +3776,11 @@ mod test {
             if let TokenType::Tag(handle, suffix) = tok.1 {
                 assert!(
                     matches!(handle, Cow::Borrowed("!")),
-                    "local tag handle should be '!', got: {:?}",
-                    handle
+                    "local tag handle should be '!', got: {handle:?}"
                 );
                 assert!(
                     matches!(suffix, Cow::Borrowed("mytag")),
-                    "local tag suffix should be borrowed, got: {:?}",
-                    suffix
+                    "local tag suffix should be borrowed, got: {suffix:?}"
                 );
                 break;
             }
@@ -3809,13 +3800,11 @@ mod test {
             if let TokenType::Tag(handle, suffix) = tok.1 {
                 assert!(
                     matches!(handle, Cow::Borrowed("!!")),
-                    "tag handle should still be borrowed, got: {:?}",
-                    handle
+                    "tag handle should still be borrowed, got: {handle:?}"
                 );
                 assert!(
                     matches!(suffix, Cow::Owned(_)),
-                    "tag suffix with URI escape should be owned, got: {:?}",
-                    suffix
+                    "tag suffix with URI escape should be owned, got: {suffix:?}"
                 );
                 assert_eq!(&*suffix, "my tag");
                 break;

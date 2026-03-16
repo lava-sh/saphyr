@@ -2,9 +2,9 @@ use saphyr_parser_bw::{Event, Parser};
 
 #[test]
 fn test_valid_surrogate_pair() {
-    let mut parser = Parser::new_from_str(r#""\uD834\uDD1E""#);
+    let parser = Parser::new_from_str(r#""\uD834\uDD1E""#);
     let mut events = vec![];
-    while let Some(Ok(event)) = parser.next() {
+    for event in parser.flatten() {
         if event.0 == Event::StreamEnd {
             break;
         }
@@ -24,9 +24,9 @@ fn test_valid_surrogate_pair() {
 
 #[test]
 fn test_unpaired_high_surrogate() {
-    let mut parser = Parser::new_from_str(r#""\uD834""#);
+    let parser = Parser::new_from_str(r#""\uD834""#);
     let mut err = None;
-    while let Some(event) = parser.next() {
+    for event in parser {
         match event {
             Err(e) => {
                 err = Some(e);
@@ -41,9 +41,9 @@ fn test_unpaired_high_surrogate() {
 
 #[test]
 fn test_unpaired_low_surrogate() {
-    let mut parser = Parser::new_from_str(r#""\uDD1E""#);
+    let parser = Parser::new_from_str(r#""\uDD1E""#);
     let mut err = None;
-    while let Some(event) = parser.next() {
+    for event in parser {
         match event {
             Err(e) => {
                 err = Some(e);
@@ -58,9 +58,9 @@ fn test_unpaired_low_surrogate() {
 
 #[test]
 fn test_reversed_surrogate_pair() {
-    let mut parser = Parser::new_from_str(r#""\uDD1E\uD834""#);
+    let parser = Parser::new_from_str(r#""\uDD1E\uD834""#);
     let mut err = None;
-    while let Some(event) = parser.next() {
+    for event in parser {
         match event {
             Err(e) => {
                 err = Some(e);
