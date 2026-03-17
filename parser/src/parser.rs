@@ -12,7 +12,7 @@ use crate::{
 
 use alloc::{
     borrow::Cow,
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     string::{String, ToString},
     vec::Vec,
 };
@@ -712,8 +712,14 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
 
     fn parser_process_directives(&mut self) -> Result<(), ScanError> {
         let mut version_directive_received = false;
+        let mut tags = if self.keep_tags {
+            self.tags.clone()
+        } else {
+            BTreeMap::new()
+        };
+        let mut document_tag_handles = BTreeSet::new();
+
         loop {
-            let mut tags = BTreeMap::new();
             match self.peek_token()? {
                 Token(span, TokenType::VersionDirective(_, _)) => {
                     // XXX parsing with warning according to spec
@@ -730,7 +736,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
                     version_directive_received = true;
                 }
                 Token(mark, TokenType::TagDirective(handle, prefix)) => {
-                    if tags.contains_key(&**handle) {
+                    if !document_tag_handles.insert(handle.to_string()) {
                         return Err(ScanError::new_str(mark.start, "the TAG directive must only be given at most once per handle in the same document"));
                     }
                     tags.insert(handle.to_string(), prefix.to_string());
@@ -740,9 +746,10 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
                 }
                 _ => break,
             }
-            self.tags = tags;
             self.skip();
         }
+
+        self.tags = tags;
         Ok(())
     }
 
@@ -1424,6 +1431,60 @@ a5: *x
                 break;
             }
         }
+    }
+
+    #[test]
+    fn test_multiple_tag_directives_are_kept_within_document() {
+        let text = r#"
+%TAG !a! tag:a,2024:
+%TAG !b! tag:b,2024:
+---
+first: !a!x foo
+second: !b!y bar
+"#;
+
+        let mut seen_a = false;
+        let mut seen_b = false;
+        for event in Parser::new_from_str(text) {
+            let (event, _) = event.unwrap();
+            if let Event::Scalar(_, _, _, Some(tag)) = event {
+                if tag.handle == "tag:a,2024:" {
+                    seen_a = true;
+                } else if tag.handle == "tag:b,2024:" {
+                    seen_b = true;
+                }
+            }
+        }
+
+        assert!(seen_a);
+        assert!(seen_b);
+    }
+
+    #[test]
+    fn test_tags_are_cleared_when_next_document_has_no_directives() {
+        let text = r#"
+%TAG !t! tag:test,2024:
+--- !t!1
+foo
+--- !t!2
+bar
+"#;
+
+        let mut parser = Parser::new_from_str(text);
+        while let Some(event) = parser.next() {
+            let (event, _) = event.unwrap();
+            if let Event::DocumentEnd = event {
+                break;
+            }
+        }
+
+        match parser.next().unwrap().unwrap().0 {
+            Event::DocumentStart(true) => {}
+            _ => panic!("expected explicit second document start"),
+        }
+
+        let err = parser.next().unwrap().unwrap_err();
+        assert!(format!("{err}").contains("the handle wasn't declared"));
     }
 
     #[test]
