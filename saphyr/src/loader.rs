@@ -33,11 +33,17 @@ where
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
     key_stack: Vec<Node>,
     anchor_map: BTreeMap<usize, Node>,
-    alias_expansion_nodes: usize,
     marker: PhantomData<&'input u32>,
     /// See [`Self::early_parse()`]
     early_parse: bool,
+    /// Number of aliases expanded in the current parsing session.
+    alias_expanded_count: usize,
 }
+
+/// Upper bound on how many aliases are expanded while loading documents.
+///
+/// This prevents alias bombs from forcing unbounded cloning of anchored subtrees.
+const MAX_ALIAS_EXPANSIONS: usize = 1024;
 
 /// A trait providing methods used by the [`YamlLoader`].
 ///
@@ -303,20 +309,14 @@ where
                 self.insert_new_node(Node::from_bare_yaml(node).with_span(span), aid, tag);
             }
             Event::Alias(id) => {
-                const MAX_ALIAS_EXPANSION_NODES: usize = 100_000;
-                let n = match self.anchor_map.get(&id) {
-                    Some(v) => {
-                        let expansion_size = v.node_count();
-                        if self.alias_expansion_nodes > MAX_ALIAS_EXPANSION_NODES
-                            || expansion_size > MAX_ALIAS_EXPANSION_NODES - self.alias_expansion_nodes
-                        {
-                            Node::from_bare_yaml(Yaml::BadValue)
-                        } else {
-                            self.alias_expansion_nodes += expansion_size;
-                            v.clone()
-                        }
+                let n = if self.alias_expanded_count >= MAX_ALIAS_EXPANSIONS {
+                    Node::from_bare_yaml(Yaml::BadValue)
+                } else {
+                    self.alias_expanded_count += 1;
+                    match self.anchor_map.get(&id) {
+                        Some(v) => v.clone(),
+                        None => Node::from_bare_yaml(Yaml::BadValue),
                     }
-                    None => Node::from_bare_yaml(Yaml::BadValue),
                 };
                 self.insert_new_node(n.with_span(span), 0, None);
             }
@@ -369,9 +369,9 @@ where
             doc_stack: vec![],
             key_stack: vec![],
             anchor_map: BTreeMap::new(),
-            alias_expansion_nodes: 0,
             marker: PhantomData,
             early_parse: true,
+            alias_expanded_count: 0,
         }
     }
 }

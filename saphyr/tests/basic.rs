@@ -85,15 +85,17 @@ a1: &DEFAULT
 
 #[test]
 fn test_alias_expansion_limit() {
-    let values = vec!["0"; 2_000].join(", ");
-    let aliases = vec!["  - *A"; 50].join("\n");
-    let s = format!("base: &A [{values}]\nrefs:\n{aliases}\n");
+    let mut s = String::from("- &A { k: v }\n");
+    for _ in 0..1025 {
+        s.push_str("- *A\n");
+    }
 
     let out = Yaml::load_from_str(&s).unwrap();
     let doc = &out[0];
 
-    assert!(doc["refs"][48].is_sequence());
-    assert!(doc["refs"][49].is_badvalue());
+    assert_eq!(doc[1]["k"].as_str().unwrap(), "v");
+    assert_eq!(doc[1024]["k"].as_str().unwrap(), "v");
+    assert!(doc[1025].is_badvalue());
 }
 
 #[test]
