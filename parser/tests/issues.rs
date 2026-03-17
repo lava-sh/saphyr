@@ -267,7 +267,6 @@ fn test_issue1() {
     );
 }
 
-
 #[test]
 fn test_flow_sequence_empty_key_with_value() {
     assert_eq!(

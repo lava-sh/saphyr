@@ -808,14 +808,14 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
             Token(span, _) => span,
         };
 
-        if !self.keep_tags {
-            self.tags.clear();
-        } else {
+        if self.keep_tags {
             // Never persist default handles across document boundaries. Allowing `%TAG !! ...`
             // or `%TAG ! ...` to leak into following documents lets earlier documents alter how
             // explicit tags are interpreted later on.
             self.tags.remove("!!");
             self.tags.remove("");
+        } else {
+            self.tags.clear();
         }
         if explicit_end {
             self.state = State::ImplicitDocumentStart;
@@ -1235,7 +1235,8 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
     where
         'input: 'a,
     {
-        if let Token(mark, TokenType::FlowEntry | TokenType::FlowSequenceEnd) = *self.peek_token()?
+        if let Token(mark, TokenType::FlowEntry | TokenType::FlowSequenceEnd) =
+            *self.peek_token()?
         {
             self.state = State::FlowSequenceEntryMappingValue;
             Ok((Event::empty_scalar(), mark))
@@ -1442,13 +1443,13 @@ a5: *x
 
     #[test]
     fn test_multiple_tag_directives_are_kept_within_document() {
-        let text = r#"
+        let text = r"
 %TAG !a! tag:a,2024:
 %TAG !b! tag:b,2024:
 ---
 first: !a!x foo
 second: !b!y bar
-"#;
+";
 
         let mut seen_a = false;
         let mut seen_b = false;
@@ -1469,16 +1470,16 @@ second: !b!y bar
 
     #[test]
     fn test_tags_are_cleared_when_next_document_has_no_directives() {
-        let text = r#"
+        let text = r"
 %TAG !t! tag:test,2024:
 --- !t!1
 foo
 --- !t!2
 bar
-"#;
+";
 
         let mut parser = Parser::new_from_str(text);
-        while let Some(event) = parser.next() {
+        for event in parser.by_ref() {
             let (event, _) = event.unwrap();
             if let Event::DocumentEnd = event {
                 break;
@@ -1523,8 +1524,8 @@ baz: "qux"
 
     #[test]
     fn test_flow_sequence_mapping_allows_empty_key() {
-        let mut parser = Parser::new_from_str("[?: value]");
-        while let Some(event) = parser.next() {
+        let parser = Parser::new_from_str("[?: value]");
+        for event in parser {
             event.expect("parser should accept flow sequence mappings with empty keys");
         }
     }
