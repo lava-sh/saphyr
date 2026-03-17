@@ -1,5 +1,6 @@
 [![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
 [![CI](https://github.com/bourumir-wyngs/saphyr/actions/workflows/ci.yml/badge.svg)](https://github.com/bourumir-wyngs/saphyr/actions/workflows/ci.yml)
+[![Miri](https://github.com/bourumir-wyngs/saphyr/actions/workflows/miri.yml/badge.svg)](https://github.com/bourumir-wyngs/saphyr/actions/workflows/miri.yml)
 
 # This crate contains the fork of saphyr-parser intended to work with serde-saphyr
 The crate is otherwise identical to the upstream crate [saphyr](https://crates.io/crates/saphyr). If you want
