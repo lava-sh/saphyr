@@ -1369,7 +1369,8 @@ impl<'input, T: BorrowedInput<'input>> ParserTrait<'input> for Parser<'input, T>
         recv: &mut R,
         multi: bool,
     ) -> Result<(), ScanError> {
-        if !self.scanner.stream_started() {
+        let stream_start_buffered = matches!(self.current.as_ref(), Some((Event::StreamStart, _)));
+        if !self.scanner.stream_started() || stream_start_buffered {
             let (ev, span) = self.next_event_impl()?;
             if ev != Event::StreamStart {
                 return Err(ScanError::new_str(
@@ -1414,7 +1415,7 @@ impl<'input, T: BorrowedInput<'input>> Iterator for Parser<'input, T> {
 mod test {
     use alloc::vec::Vec;
 
-    use super::{Event, Parser};
+    use super::{Event, EventReceiver, Parser};
 
     #[test]
     fn test_peek_eq_parse() {
@@ -1537,5 +1538,28 @@ baz: "qux"
         }
 
         assert_eq!(int_tags, vec!["tag:evil,2024:", "tag:yaml.org,2002:"]);
+    }
+
+    #[test]
+    fn test_load_after_peek_stream_start() {
+        #[derive(Default)]
+        struct Sink<'input> {
+            events: Vec<Event<'input>>,
+        }
+
+        impl<'input> EventReceiver<'input> for Sink<'input> {
+            fn on_event(&mut self, ev: Event<'input>) {
+                self.events.push(ev);
+            }
+        }
+
+        let mut parser = Parser::new_from_str("key: value\n");
+        let mut sink = Sink::default();
+
+        assert_eq!(parser.peek().unwrap().unwrap().0, Event::StreamStart);
+        parser.load(&mut sink, false).unwrap();
+
+        assert!(matches!(sink.events.first(), Some(Event::StreamStart)));
+        assert!(matches!(sink.events.get(1), Some(Event::DocumentStart(_))));
     }
 }
