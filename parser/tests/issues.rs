@@ -230,6 +230,26 @@ fn test_issue1() {
     );
 }
 
+
+#[test]
+fn test_flow_sequence_empty_key_with_value() {
+    assert_eq!(
+        run_parser("[: value]").unwrap(),
+        [
+            Event::StreamStart,
+            Event::DocumentStart(false),
+            Event::SequenceStart(0, None),
+            Event::MappingStart(0, None),
+            Event::Scalar("~".into(), ScalarStyle::Plain, 0, None),
+            Event::Scalar("value".into(), ScalarStyle::Plain, 0, None),
+            Event::MappingEnd,
+            Event::SequenceEnd,
+            Event::DocumentEnd,
+            Event::StreamEnd,
+        ]
+    );
+}
+
 #[test]
 fn test_pr12() {
     assert_eq!(

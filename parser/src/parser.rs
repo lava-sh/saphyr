@@ -1235,8 +1235,7 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
     where
         'input: 'a,
     {
-        if let Token(mark, TokenType::Value | TokenType::FlowEntry | TokenType::FlowSequenceEnd) =
-            *self.peek_token()?
+        if let Token(mark, TokenType::FlowEntry | TokenType::FlowSequenceEnd) = *self.peek_token()?
         {
             self.state = State::FlowSequenceEntryMappingValue;
             Ok((Event::empty_scalar(), mark))
