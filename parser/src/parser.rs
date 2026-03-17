@@ -810,6 +810,12 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
 
         if !self.keep_tags {
             self.tags.clear();
+        } else {
+            // Never persist default handles across document boundaries. Allowing `%TAG !! ...`
+            // or `%TAG ! ...` to leak into following documents lets earlier documents alter how
+            // explicit tags are interpreted later on.
+            self.tags.remove("!!");
+            self.tags.remove("");
         }
         if explicit_end {
             self.state = State::ImplicitDocumentStart;
@@ -1406,6 +1412,8 @@ impl<'input, T: BorrowedInput<'input>> Iterator for Parser<'input, T> {
 
 #[cfg(test)]
 mod test {
+    use alloc::vec::Vec;
+
     use super::{Event, Parser};
 
     #[test]
@@ -1512,5 +1520,22 @@ baz: "qux"
             }
         }
         panic!("Test failed, did not encounter error")
+    }
+
+    #[test]
+    fn test_keep_tags_does_not_persist_default_tag_handles() {
+        let text = "%TAG !! tag:evil,2024:\n--- !!int 1\n--- !!int 2\n";
+
+        let mut int_tags = Vec::new();
+        for event in Parser::new_from_str(text).keep_tags(true) {
+            let event = event.unwrap().0;
+            if let Event::Scalar(_, _, _, Some(tag)) = event {
+                if tag.suffix == "int" {
+                    int_tags.push(tag.handle.clone());
+                }
+            }
+        }
+
+        assert_eq!(int_tags, vec!["tag:evil,2024:", "tag:yaml.org,2002:"]);
     }
 }
