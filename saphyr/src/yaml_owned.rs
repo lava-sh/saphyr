@@ -215,6 +215,20 @@ impl LoadableYamlNode<'_> for YamlOwned {
         parser.load(&mut loader, true)?;
         Ok(loader.into_documents())
     }
+
+    fn node_count(&self) -> usize {
+        match self {
+            Self::Sequence(seq) => 1 + seq.iter().map(Self::node_count).sum::<usize>(),
+            Self::Mapping(map) => {
+                1 + map
+                    .iter()
+                    .map(|(k, v)| k.node_count() + v.node_count())
+                    .sum::<usize>()
+            }
+            Self::Tagged(_, node) => 1 + node.node_count(),
+            _ => 1,
+        }
+    }
 }
 
 impl IntoIterator for YamlOwned {

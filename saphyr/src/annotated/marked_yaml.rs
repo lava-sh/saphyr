@@ -223,4 +223,18 @@ impl<'input> LoadableYamlNode<'input> for MarkedYaml<'input> {
         parser.load(&mut loader, true)?;
         Ok(loader.into_documents())
     }
+
+    fn node_count(&self) -> usize {
+        match &self.data {
+            YamlData::Sequence(seq) => 1 + seq.iter().map(Self::node_count).sum::<usize>(),
+            YamlData::Mapping(map) => {
+                1 + map
+                    .iter()
+                    .map(|(k, v)| k.node_count() + v.node_count())
+                    .sum::<usize>()
+            }
+            YamlData::Tagged(_, node) => 1 + node.node_count(),
+            _ => 1,
+        }
+    }
 }

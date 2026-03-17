@@ -33,6 +33,7 @@ where
     doc_stack: Vec<(Node, usize, Option<Cow<'input, Tag>>)>,
     key_stack: Vec<Node>,
     anchor_map: BTreeMap<usize, Node>,
+    alias_expansion_nodes: usize,
     marker: PhantomData<&'input u32>,
     /// See [`Self::early_parse()`]
     early_parse: bool,
@@ -117,6 +118,12 @@ pub trait LoadableYamlNode<'input>: Clone + core::hash::Hash + Eq {
     /// Take the contained node out of `Self`, leaving a `BadValue` in its place.
     #[must_use]
     fn take(&mut self) -> Self;
+
+    /// Return the number of YAML nodes contained in this node, including itself.
+    #[must_use]
+    fn node_count(&self) -> usize {
+        1
+    }
 
     /// Provide the span for the node (builder-style).
     ///
@@ -296,8 +303,19 @@ where
                 self.insert_new_node(Node::from_bare_yaml(node).with_span(span), aid, tag);
             }
             Event::Alias(id) => {
+                const MAX_ALIAS_EXPANSION_NODES: usize = 100_000;
                 let n = match self.anchor_map.get(&id) {
-                    Some(v) => v.clone(),
+                    Some(v) => {
+                        let expansion_size = v.node_count();
+                        if self.alias_expansion_nodes > MAX_ALIAS_EXPANSION_NODES
+                            || expansion_size > MAX_ALIAS_EXPANSION_NODES - self.alias_expansion_nodes
+                        {
+                            Node::from_bare_yaml(Yaml::BadValue)
+                        } else {
+                            self.alias_expansion_nodes += expansion_size;
+                            v.clone()
+                        }
+                    }
                     None => Node::from_bare_yaml(Yaml::BadValue),
                 };
                 self.insert_new_node(n.with_span(span), 0, None);
@@ -351,6 +369,7 @@ where
             doc_stack: vec![],
             key_stack: vec![],
             anchor_map: BTreeMap::new(),
+            alias_expansion_nodes: 0,
             marker: PhantomData,
             early_parse: true,
         }

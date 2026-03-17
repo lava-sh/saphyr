@@ -236,4 +236,18 @@ impl LoadableYamlNode<'_> for MarkedYamlOwned {
         parser.load(&mut loader, true)?;
         Ok(loader.into_documents())
     }
+
+    fn node_count(&self) -> usize {
+        match &self.data {
+            YamlDataOwned::Sequence(seq) => 1 + seq.iter().map(Self::node_count).sum::<usize>(),
+            YamlDataOwned::Mapping(map) => {
+                1 + map
+                    .iter()
+                    .map(|(k, v)| k.node_count() + v.node_count())
+                    .sum::<usize>()
+            }
+            YamlDataOwned::Tagged(_, node) => 1 + node.node_count(),
+            _ => 1,
+        }
+    }
 }
