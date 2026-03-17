@@ -469,7 +469,7 @@ enum ImplicitMappingState {
     /// We are inside the implcit mapping.
     ///
     /// Note that this state is not set immediately (we need to have encountered the `:` to know).
-    Inside,
+    Inside(u8),
 }
 
 /// The YAML scanner.
@@ -2094,17 +2094,20 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
             return Err(ScanError::new_str(self.mark, "misplaced bracket"));
         }
 
+        let flow_level = self.flow_level;
+
         self.flow_markers.pop();
         self.remove_simple_key()?;
-        self.decrease_flow_level();
-
-        self.disallow_simple_key();
 
         if matches!(tok, TokenType::FlowSequenceEnd) {
-            self.end_implicit_mapping(self.mark);
+            self.end_implicit_mapping(self.mark, flow_level);
             // We are out exiting the flow sequence, nesting goes down 1 level.
             self.implicit_flow_mapping_states.pop();
         }
+
+        self.decrease_flow_level();
+
+        self.disallow_simple_key();
 
         let start_mark = self.mark;
         self.skip_non_blank();
@@ -2129,7 +2132,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         self.remove_simple_key()?;
         self.allow_simple_key();
 
-        self.end_implicit_mapping(self.mark);
+        self.end_implicit_mapping(self.mark, self.flow_level);
 
         let start_mark = self.mark;
         self.skip_non_blank();
@@ -3297,7 +3300,8 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
         let is_implicit_flow_mapping =
             !self.implicit_flow_mapping_states.is_empty() && !self.flow_mapping_started;
         if is_implicit_flow_mapping {
-            *self.implicit_flow_mapping_states.last_mut().unwrap() = ImplicitMappingState::Inside;
+            *self.implicit_flow_mapping_states.last_mut().unwrap() =
+                ImplicitMappingState::Inside(self.flow_level);
         }
 
         // Skip over ':'.
@@ -3506,9 +3510,9 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
     /// This function does not pop the state in [`implicit_flow_mapping_states`].
     ///
     /// [`implicit_flow_mapping_states`]: Self::implicit_flow_mapping_states
-    fn end_implicit_mapping(&mut self, mark: Marker) {
+    fn end_implicit_mapping(&mut self, mark: Marker, flow_level: u8) {
         if let Some(implicit_mapping) = self.implicit_flow_mapping_states.last_mut() {
-            if *implicit_mapping == ImplicitMappingState::Inside {
+            if *implicit_mapping == ImplicitMappingState::Inside(flow_level) {
                 self.flow_mapping_started = false;
                 *implicit_mapping = ImplicitMappingState::Possible;
                 self.tokens

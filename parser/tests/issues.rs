@@ -112,6 +112,43 @@ fn test_issue1() {
     assert_eq!(run_parser(reference).unwrap(), expected);
     assert_eq!(run_parser("[{a: [42]}]").unwrap(), expected);
     assert_eq!(run_parser("[a: [42]]").unwrap(), expected);
+    assert_eq!(
+        run_parser("[a: [1, 2]]").unwrap(),
+        [
+            Event::StreamStart,
+            Event::DocumentStart(false),
+            Event::SequenceStart(0, None),
+            Event::MappingStart(0, None),
+            Event::Scalar("a".into(), ScalarStyle::Plain, 0, None),
+            Event::SequenceStart(0, None),
+            Event::Scalar("1".into(), ScalarStyle::Plain, 0, None),
+            Event::Scalar("2".into(), ScalarStyle::Plain, 0, None),
+            Event::SequenceEnd,
+            Event::MappingEnd,
+            Event::SequenceEnd,
+            Event::DocumentEnd,
+            Event::StreamEnd,
+        ]
+    );
+
+    let expected_mapping = [
+        Event::StreamStart,
+        Event::DocumentStart(false),
+        Event::SequenceStart(0, None),
+        Event::MappingStart(0, None),
+        Event::Scalar("a".into(), ScalarStyle::Plain, 0, None),
+        Event::MappingStart(0, None),
+        Event::Scalar("b".into(), ScalarStyle::Plain, 0, None),
+        Event::Scalar("c".into(), ScalarStyle::Plain, 0, None),
+        Event::Scalar("d".into(), ScalarStyle::Plain, 0, None),
+        Event::Scalar("e".into(), ScalarStyle::Plain, 0, None),
+        Event::MappingEnd,
+        Event::MappingEnd,
+        Event::SequenceEnd,
+        Event::DocumentEnd,
+        Event::StreamEnd,
+    ];
+    assert_eq!(run_parser("[a: {b: c, d: e}]").unwrap(), expected_mapping);
 
     // Other test cases derived from the bug
 
