@@ -1238,7 +1238,6 @@ impl<'input, T: BorrowedInput<'input>> Parser<'input, T> {
         if let Token(mark, TokenType::Value | TokenType::FlowEntry | TokenType::FlowSequenceEnd) =
             *self.peek_token()?
         {
-            self.skip();
             self.state = State::FlowSequenceEntryMappingValue;
             Ok((Event::empty_scalar(), mark))
         } else {
@@ -1521,6 +1520,14 @@ baz: "qux"
             }
         }
         panic!("Test failed, did not encounter error")
+    }
+
+    #[test]
+    fn test_flow_sequence_mapping_allows_empty_key() {
+        let mut parser = Parser::new_from_str("[?: value]");
+        while let Some(event) = parser.next() {
+            event.expect("parser should accept flow sequence mappings with empty keys");
+        }
     }
 
     #[test]
