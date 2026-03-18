@@ -22,6 +22,13 @@ struct YamlTest {
 }
 
 fn main() -> Result<ExitCode> {
+    if cfg!(miri) {
+        eprintln!("========================================================");
+        eprintln!("/!\\ yaml-test-suite is skipped under Miri isolation /!\\");
+        eprintln!("========================================================");
+        return Ok(ExitCode::SUCCESS);
+    }
+
     if !std::path::Path::new("tests/yaml-test-suite").is_dir() {
         eprintln!("===================================================================");
         eprintln!("/!\\ yaml-test-suite directory not found, Skipping tests /!\\");
