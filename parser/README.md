@@ -83,6 +83,9 @@ This parser supports explicit handling for JSON-style Unicode surrogate pairs in
 There is some supporting code to implement !include easier, mostly where implementing outside this crate would hit
 permission limits for anchor id sequences.
 
+## Security audit
+
+The parser crate occasionally gets small patches to enhance resilience to DOS attacks, avoiding panic and hanging.    
 
 # saphyr-parser
 
