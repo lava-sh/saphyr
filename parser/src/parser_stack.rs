@@ -35,6 +35,19 @@ impl<'input> ReplayParser<'input> {
     pub fn set_anchor_offset(&mut self, offset: usize) {
         self.anchor_offset = offset;
     }
+
+    fn advance_anchor_offset(&mut self, event: &Event<'input>) {
+        let anchor_id = match event {
+            Event::Scalar(_, _, anchor_id, _)
+            | Event::SequenceStart(anchor_id, _)
+            | Event::MappingStart(anchor_id, _) => *anchor_id,
+            _ => 0,
+        };
+
+        if anchor_id > 0 {
+            self.anchor_offset = self.anchor_offset.max(anchor_id.saturating_add(1));
+        }
+    }
 }
 
 impl<'input> ParserTrait<'input> for ReplayParser<'input> {
@@ -48,10 +61,12 @@ impl<'input> ParserTrait<'input> for ReplayParser<'input> {
     fn next_event(&mut self) -> Option<ParseResult<'input>> {
         if let Some(current) = self.current.take() {
             self.index += 1;
+            self.advance_anchor_offset(&current.0);
             return Some(Ok(current));
         }
         let event = self.events.get(self.index).cloned()?;
         self.index += 1;
+        self.advance_anchor_offset(&event.0);
         Some(Ok(event))
     }
 
