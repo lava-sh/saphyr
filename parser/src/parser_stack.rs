@@ -333,9 +333,6 @@ where
                     if let Some(parent) = self.parsers.last_mut() {
                         parent.set_anchor_offset(popped.get_anchor_offset());
                     }
-                    if e.info().contains("EOF") {
-                        continue;
-                    }
                     return Err(e);
                 }
                 Some(Ok((Event::DocumentEnd, span))) => {

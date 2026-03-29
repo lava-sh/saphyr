@@ -426,6 +426,15 @@ fn test_include_resolver() {
 }
 
 #[test]
+fn test_unexpected_eof_is_reported() {
+    let mut stack: MyStack = ParserStack::new();
+    stack.push_str_parser(Parser::new_from_str("a: [1, 2"), "p1".to_string());
+
+    let res = collect_events(&mut stack);
+    assert!(res.is_err(), "expected malformed input to return an error");
+}
+
+#[test]
 fn test_replay_parser_updates_anchor_offset() {
     let mut stack: MyStack = ParserStack::new();
     stack.push_str_parser(Parser::new_from_str("k1: &a v1\nk3: &c v3"), "p1".to_string());
