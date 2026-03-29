@@ -36,6 +36,8 @@ where
     marker: PhantomData<&'input u32>,
     /// See [`Self::early_parse()`]
     early_parse: bool,
+    /// Number of nodes cloned through aliases in the current parsing session.
+    alias_expansion_nodes: usize,
     /// Number of aliases expanded in the current parsing session.
     alias_expanded_count: usize,
 }
@@ -44,6 +46,10 @@ where
 ///
 /// This prevents alias bombs from forcing unbounded cloning of anchored subtrees.
 const MAX_ALIAS_EXPANSIONS: usize = 1024;
+/// Upper bound on how many nodes can be cloned by alias expansion while loading documents.
+///
+/// This prevents a single large anchor from being cloned repeatedly and exhausting memory.
+const MAX_ALIAS_EXPANSION_NODES: usize = 100_000;
 
 /// A trait providing methods used by the [`YamlLoader`].
 ///
@@ -314,7 +320,18 @@ where
                 } else {
                     self.alias_expanded_count += 1;
                     match self.anchor_map.get(&id) {
-                        Some(v) => v.clone(),
+                        Some(v) => {
+                            let expansion_size = v.node_count();
+                            if self.alias_expansion_nodes > MAX_ALIAS_EXPANSION_NODES
+                                || expansion_size
+                                    > MAX_ALIAS_EXPANSION_NODES - self.alias_expansion_nodes
+                            {
+                                Node::from_bare_yaml(Yaml::BadValue)
+                            } else {
+                                self.alias_expansion_nodes += expansion_size;
+                                v.clone()
+                            }
+                        }
                         None => Node::from_bare_yaml(Yaml::BadValue),
                     }
                 };
@@ -371,6 +388,7 @@ where
             anchor_map: BTreeMap::new(),
             marker: PhantomData,
             early_parse: true,
+            alias_expansion_nodes: 0,
             alias_expanded_count: 0,
         }
     }

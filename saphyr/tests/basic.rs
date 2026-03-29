@@ -99,6 +99,23 @@ fn test_alias_expansion_limit() {
 }
 
 #[test]
+fn test_alias_expansion_node_limit() {
+    let mut s = String::from("- &A\n");
+    for i in 0..2000 {
+        s.push_str(&format!("  k{i}: v{i}\n"));
+    }
+    for _ in 0..60 {
+        s.push_str("- *A\n");
+    }
+
+    let out = Yaml::load_from_str(&s).unwrap();
+    let doc = &out[0];
+
+    assert_eq!(doc[1]["k0"].as_str().unwrap(), "v0");
+    assert!(doc[51].is_badvalue());
+}
+
+#[test]
 fn test_plain_datatype() {
     let s = "
 - 'string'
