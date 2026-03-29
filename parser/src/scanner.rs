@@ -2985,6 +2985,7 @@ impl<'input, T: BorrowedInput<'input>> Scanner<'input, T> {
 
             // Handle JSON surrogate pairs: high surrogate followed by low surrogate
             if code_length == 4 && (0xD800..=0xDBFF).contains(&value) {
+                self.input.lookahead(2);
                 if self.input.peek() == '\\' && self.input.peek_nth(1) == 'u' {
                     self.skip_n_non_blank(2);
                     self.input.lookahead(4);

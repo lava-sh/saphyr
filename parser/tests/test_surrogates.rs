@@ -72,3 +72,23 @@ fn test_reversed_surrogate_pair() {
     }
     assert!(err.is_some(), "Expected error for reversed surrogate pair");
 }
+
+#[test]
+fn test_unpaired_high_surrogate_from_iter() {
+    let parser = Parser::new_from_iter(r#""\uD834""#.chars());
+    let mut err = None;
+    for event in parser {
+        match event {
+            Err(e) => {
+                err = Some(e);
+                break;
+            }
+            Ok((Event::StreamEnd, _)) => break,
+            _ => {}
+        }
+    }
+    assert!(
+        err.is_some(),
+        "Expected error for unpaired high surrogate when parsing from iterator"
+    );
+}
