@@ -505,7 +505,7 @@ pub trait Input {
     /// be used to advance the index and column, since no end-of-line character will be consumed.
     fn fetch_while_is_yaml_non_space(&mut self, out: &mut String) -> usize {
         let mut n_bytes = 0;
-        while crate::char_traits::is_yaml_non_space(self.look_ch()) {
+        while crate::char_traits::is_yaml_non_space(self.look_ch()) && !is_z(self.look_ch()) {
             let c = self.peek();
             n_bytes += c.len_utf8();
             out.push(c);

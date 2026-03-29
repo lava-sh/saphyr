@@ -67,3 +67,39 @@ fn yaml_reserved_directive_with_params() {
     }
     assert!(got_err.is_none(), "Error: {}", got_err.unwrap().info());
 }
+
+#[test]
+fn yaml_reserved_directive_at_eof() {
+    let yaml = "%FOO";
+    let mut got_err: Option<ScanError> = None;
+
+    for item in Parser::new_from_str(yaml) {
+        if let Err(e) = item {
+            got_err = Some(e);
+            break;
+        }
+    }
+    assert!(got_err.is_some(), "Expected an error");
+    assert!(got_err
+        .unwrap()
+        .info()
+        .contains("did not find expected <document start>"));
+}
+
+#[test]
+fn yaml_reserved_directive_with_param_at_eof() {
+    let yaml = "%FOO bar";
+    let mut got_err: Option<ScanError> = None;
+
+    for item in Parser::new_from_str(yaml) {
+        if let Err(e) = item {
+            got_err = Some(e);
+            break;
+        }
+    }
+    assert!(got_err.is_some(), "Expected an error");
+    assert!(got_err
+        .unwrap()
+        .info()
+        .contains("did not find expected <document start>"));
+}
