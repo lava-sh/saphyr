@@ -55,7 +55,7 @@ After careful consideration, the `serde-saphyr` team decided to support this cas
 That said, we still strongly recommend placing the closing bracket further to the right to remain fully YAML-compliant.
 
 ## Fix unexpected end of plain scalar while parsing string, cherry picked #87 from saphyr-rs
-The pull request [#87](https://github.com/saphyr-rs/saphyr/pull/87) fixes parsing of the followign YAML:
+The pull request [#87](https://github.com/saphyr-rs/saphyr/pull/87) fixes parsing of the following YAML:
 
 ```yaml
 hello:
@@ -70,7 +70,7 @@ When bracket (`[`,`{`) or quote lacks the matching closing bracket, unpatched `0
 ## Zero-copy parsing optimization
 The parser now supports zero-copy parsing when the input is provided as a string (`&str`).
 This is achieved via the `BorrowedInput` trait and using `Cow<'input, str>` in `TokenType`.
-When parsing from a string, tokens like scalars, anchors, and tag directives borrow directly from the input string instead of allocating new `String`s, significantly reducing memory allocations and improving performance. This is quite heavy change but helped with performance dramatically.
+When parsing from a string, tokens like scalars, anchors, and tag directives borrow directly from the input string instead of allocating new `String`s, significantly reducing memory allocations and improving performance. This is quite a heavy change but helped with performance dramatically.
 Streaming inputs continue to work as before, owning their data.
 
 ## JSON-style Unicode surrogate pairs
