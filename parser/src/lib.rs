@@ -25,7 +25,8 @@
 //! #### `debug_prints`
 //! Enables the `debug` module and usage of debug prints in the scanner and the parser. Do not
 //! enable if you are consuming the crate rather than working on it as this can significantly
-//! decrease performance.
+//! decrease performance. Output remains opt-in behind a local compile-time toggle in
+//! `src/debug.rs`.
 //!
 //! This feature does not raise the MSRV further.
 //!

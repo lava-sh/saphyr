@@ -5,6 +5,8 @@
 **Changes**:
 
 - Added `no_std` support
+- `debug_prints` no longer reads `SAPHYR_DEBUG` from the environment. Debug
+  output is now controlled by a local compile-time toggle in `src/debug.rs`.
 
 **Breaking Changes**:
 
