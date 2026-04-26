@@ -8,6 +8,7 @@
 
 **Breaking Changes**:
 
+- Raised MSRV to `1.81.0`.
 - `LoadError` is now a `non_exhaustive` enum.
   This allows adding variants with features without violating the additive
   nature of Cargo features.

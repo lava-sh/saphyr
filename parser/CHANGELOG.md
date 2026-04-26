@@ -6,6 +6,11 @@
 
 - Added `no_std` support
 
+**Breaking Changes**:
+
+- Raised MSRV to `1.81.0` and removed the parser crate's direct dependency on
+  `thiserror`.
+
 ## v0.0.6
 
 **Fixes**:

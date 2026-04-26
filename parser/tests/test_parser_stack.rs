@@ -437,7 +437,10 @@ fn test_unexpected_eof_is_reported() {
 #[test]
 fn test_replay_parser_updates_anchor_offset() {
     let mut stack: MyStack = ParserStack::new();
-    stack.push_str_parser(Parser::new_from_str("k1: &a v1\nk3: &c v3"), "p1".to_string());
+    stack.push_str_parser(
+        Parser::new_from_str("k1: &a v1\nk3: &c v3"),
+        "p1".to_string(),
+    );
 
     loop {
         let ev = stack.next_event().unwrap().unwrap().0;
@@ -451,8 +454,14 @@ fn test_replay_parser_updates_anchor_offset() {
         (Event::StreamStart, span),
         (Event::DocumentStart(false), span),
         (Event::MappingStart(0, None), span),
-        (Event::Scalar("k2".into(), saphyr_parser_bw::ScalarStyle::Plain, 0, None), span),
-        (Event::Scalar("v2".into(), saphyr_parser_bw::ScalarStyle::Plain, 2, None), span),
+        (
+            Event::Scalar("k2".into(), saphyr_parser_bw::ScalarStyle::Plain, 0, None),
+            span,
+        ),
+        (
+            Event::Scalar("v2".into(), saphyr_parser_bw::ScalarStyle::Plain, 2, None),
+            span,
+        ),
         (Event::MappingEnd, span),
         (Event::DocumentEnd, span),
         (Event::StreamEnd, span),
@@ -466,6 +475,9 @@ fn test_replay_parser_updates_anchor_offset() {
         .unwrap();
 
     if let Event::Scalar(_, _, id, _) = v3_ev {
-        assert_eq!(*id, 3, "Parent parser should continue after replayed anchors");
+        assert_eq!(
+            *id, 3,
+            "Parent parser should continue after replayed anchors"
+        );
     }
 }

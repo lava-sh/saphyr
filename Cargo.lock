@@ -745,7 +745,7 @@ dependencies = [
 
 [[package]]
 name = "saphyr-parser-bw"
-version = "0.0.611"
+version = "0.0.612"
 dependencies = [
  "arraydeque",
  "libtest-mimic",
@@ -754,7 +754,6 @@ dependencies = [
  "rustyline",
  "saphyr",
  "smallvec",
- "thiserror 2.0.18",
 ]
 
 [[package]]

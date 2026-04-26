@@ -15,9 +15,7 @@ use alloc::{
     string::String,
     vec::Vec,
 };
-use core::char;
-
-use thiserror::Error;
+use core::{char, fmt};
 
 use crate::{
     char_traits::{
@@ -211,14 +209,7 @@ impl Span {
 }
 
 /// An error that occurred while scanning.
-#[derive(Clone, PartialEq, Debug, Eq, Error)]
-#[error(
-    "{} at char {} line {} column {}",
-    .info,
-    .mark.index(),
-    .mark.line(),
-    .mark.col() + 1,
-)]
+#[derive(Clone, PartialEq, Debug, Eq)]
 pub struct ScanError {
     /// The position at which the error happened in the source.
     mark: Marker,
@@ -256,6 +247,21 @@ impl ScanError {
         self.info.as_ref()
     }
 }
+
+impl fmt::Display for ScanError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} at char {} line {} column {}",
+            self.info,
+            self.mark.index(),
+            self.mark.line(),
+            self.mark.col() + 1
+        )
+    }
+}
+
+impl core::error::Error for ScanError {}
 
 /// The contents of a scanner token.
 #[derive(Clone, PartialEq, Debug, Eq)]
