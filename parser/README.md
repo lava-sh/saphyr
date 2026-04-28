@@ -1,150 +1,183 @@
-# This crate is a fork of saphyr-parser intended to work with serde-saphyr.
+# saphyr-parser-bw
 
-This crate is a fork of [saphyr-parser](https://crates.io/crates/saphyr-parser), for work with [serde-saphyr](https://crates.io/crates/serde-saphyr).
+A YAML 1.2 parser in pure Rust with strict compliance and seamless integration with [`serde-saphyr`](https://crates.io/crates/serde-saphyr).
 
-It includes a small set of targeted changes required for full YAML compliance, resolving all yaml-test-suite failures. These changes have been proposed upstream. If they are incorporated, this fork may be deprecated in the future.
+This crate started as a fork of [`saphyr-parser`](https://crates.io/crates/saphyr-parser) that descencds from [`yaml-rust`](https://github.com/chyh1990/yaml-rust), with influences from `libyaml` and `yaml-cpp`. The project has since diverged significantly and is now maintained as an independent project.
 
-# Changes made
+Its primary goals are:
 
-`saphyr-parser-bw` has the same public API as `saphyr-parser`.  
-It differs only in the following, narrowly scoped behaviors, all motivated by YAML compliance and interoperability.
+* full compliance with the [yaml-test-suite](https://github.com/yaml/yaml-test-suite), including correctness in edge cases
+* compatibility with real-world YAML usage
+* efficient parsing with reduced allocations
 
-## Test case 4H7K: extra closing bracket is an error
-A sequence such as:
+`saphyr-parser-bw` (mostly) preserves the public API of `saphyr-parser`, typically making it a drop-in replacement.
 
-```yaml
-[ a, b, c ] ]
+## Minimal example
+
+`Parser::new_from_str` returns an iterator of `(Event, Span)` pairs. If you only care about parser events, you can ignore the span and match on the emitted `Event` values:
+
+```rust
+use saphyr_parser_bw::{Event, Parser};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let yaml = r#"
+items: !shopping
+  - milk
+  - !!str bread
+locations: # Example with composite keys
+  [47.3769, 8.5417]: local
+  [40.7128, -74.0060]: remote
+"#;
+
+    for next in Parser::new_from_str(yaml) {
+        let (event, _span) = next?;
+
+        match &event {
+            Event::SequenceStart(_, Some(tag)) => {
+                println!("sequence tag: {}{}", tag.handle, tag.suffix);
+            }
+            Event::Scalar(value, _, _, Some(tag)) => {
+                println!("scalar tag: {}{} for {value:?}", tag.handle, tag.suffix);
+            }
+            _ => {}
+        }
+
+        println!("{event:?}");
+    }
+
+    Ok(())
+}
 ```
 
-is invalid YAML. This case is now correctly reported as an error.
+This prints an event stream like:
 
-## Test case BS4K: comment intercepts multiline content
-A comment that intercepts multiline content is invalid YAML:
-
-```
-word1  # comment
-word2
-```
-
-while this is valid, even if can only occur at the top level and not in the map:
-```yaml
-word1
-word2
-```
-
-`saphyr-parser` version `0.0.6` accepted input with comment as valid and silently discarded the part of the text following the comment. This behavior has been corrected.
-
-## Test case ZYU8: reserved directives must be ignored
-Reserved directives must be ignored when they appear in a document.  
-While `saphyr-parser` does not make use of such directives, version `0.0.6` raised an error instead of ignoring them.  
-This has been fixed to match the YAML specification.
-
-## Insufficiently indented closing bracket accepted as valid
-
-This is the most controversial change, and we fully understand the argument that such documents should be rejected:
-
-```yaml
-key: [ 1, 2, 3,
-       4, 5, 6
-] # <-- this closing bracket is not sufficiently indented
+```text
+StreamStart
+DocumentStart(false)
+MappingStart(0, None)
+Scalar("items", Plain, 0, None)
+sequence tag: !shopping
+SequenceStart(0, Some(Tag { handle: "!", suffix: "shopping" }))
+Scalar("milk", Plain, 0, None)
+scalar tag: tag:yaml.org,2002:str for "bread"
+Scalar("bread", Plain, 0, Some(Tag { handle: "tag:yaml.org,2002:", suffix: "str" }))
+SequenceEnd
+Scalar("locations", Plain, 0, None)
+MappingStart(0, None)
+SequenceStart(0, None)
+Scalar("47.3769", Plain, 0, None)
+Scalar("8.5417", Plain, 0, None)
+SequenceEnd
+Scalar("local", Plain, 0, None)
+SequenceStart(0, None)
+Scalar("40.7128", Plain, 0, None)
+Scalar("-74.0060", Plain, 0, None)
+SequenceEnd
+Scalar("remote", Plain, 0, None)
+MappingEnd
+MappingEnd
+DocumentEnd
+StreamEnd
 ```
 
-However, we received multiple bug reports and user complaints about rejecting this input, likely because many other YAML parsers accept it.  
-After careful consideration, the `serde-saphyr` team decided to support this case for compatibility reasons.
 
-That said, we still strongly recommend placing the closing bracket further to the right to remain fully YAML-compliant.
+## Key differences from saphyr-parser
 
-## Fix unexpected end of plain scalar while parsing string, cherry picked #87 from saphyr-rs
-The pull request [#87](https://github.com/saphyr-rs/saphyr/pull/87) fixes parsing of the following YAML:
+All changes are intentionally scoped around correctness, compliance, and interoperability.
 
-```yaml
-hello:
-  world: this is a string
-    --- still a string
-```
-The expected string value is `this is a string --- still a string`.
+### YAML compliance fixes
 
-## Report the root cause of mismatching brackets
-When bracket (`[`,`{`) or quote lacks the matching closing bracket, unpatched `0.0.6` version currently reports then end of file as the location of the error. This may be very far from the actual cause of the error, and reporting the opening bracket is more helpful. Our version in such cases reports row and column of the opening bracket as the error location.
+* **Invalid extra closing brackets are rejected**
 
-## Zero-copy parsing optimization
-The parser now supports zero-copy parsing when the input is provided as a string (`&str`).
-This is achieved via the `BorrowedInput` trait and using `Cow<'input, str>` in `TokenType`.
-When parsing from a string, tokens like scalars, anchors, and tag directives borrow directly from the input string instead of allocating new `String`s, significantly reducing memory allocations and improving performance. This is quite a heavy change but helped with performance dramatically.
-Streaming inputs continue to work as before, owning their data.
+  ```yaml
+  [ a, b, c ] ]
+  ```
 
-## JSON-style Unicode surrogate pairs
-This parser supports explicit handling for JSON-style Unicode surrogate pairs in quoted scalar escape sequences.
-* `\uXXXX` escapes that encode a high surrogate are now required to be followed immediately by a valid low surrogate escape, and both escapes are combined into the corresponding Unicode scalar value.
-* Unpaired high surrogates, unpaired low surrogates, and reversed surrogate pairs are now rejected during scanning instead of being treated as generic invalid Unicode escape codes.
+* **Comments no longer truncate multiline scalars**
 
-## Parser stack
+  ```yaml
+  word1  # comment
+  word2
+  ```
 
-There is some supporting code to implement !include easier, mostly where implementing outside this crate would hit
-permission limits for anchor id sequences.
+  This is now correctly treated as invalid YAML instead of silently discarding content.
 
-## Security audit
+* **Reserved directives are ignored**
 
-The parser crate occasionally gets small patches to enhance resilience to DOS attacks, avoiding panic and hanging.    
+  Previously reported as errors; now handled according to the YAML specification.
 
-# saphyr-parser
+---
 
-[saphyr-parser](https://github.com/saphyr-rs/saphyr-parser) is a fully compliant YAML 1.2
-parser implementation written in pure Rust.
+### Compatibility adjustment
 
-**If you want to load to a YAML Rust structure or manipulate YAML objects, use
-`saphyr` instead of `saphyr-parser`. This crate contains only the parser.**
+* **Relaxed indentation for closing brackets**
 
-This work is based on [`yaml-rust`](https://github.com/chyh1990/yaml-rust) with
-fixes towards being compliant to the [YAML test
-suite](https://github.com/yaml/yaml-test-suite/). `yaml-rust`'s parser is
-heavily influenced by `libyaml` and `yaml-cpp`.
+  ```yaml
+  key: [ 1, 2, 3,
+         4, 5, 6
+  ]
+  ```
 
-`saphyr-parser` is a pure Rust YAML 1.2 implementation that benefits from the
-memory safety and other benefits from the Rust language.
+  While not strictly YAML-compliant, this form is accepted for compatibility with other parsers and real-world inputs.
 
-## Security
+---
 
-This library does not try to interpret any type specifiers in a YAML document,
-so there is no risk of, say, instantiating a socket with fields and
-communicating with the outside world just by parsing a YAML document.
+### Parsing correctness improvements
 
-## Specification Compliance
+* **Plain scalar continuation fixed**
+  Supports cases like:
 
-This implementation is fully compatible with the YAML 1.2 specification. In
-order to help with compliance, `yaml-rust2` tests against (and passes) the [YAML
-test suite](https://github.com/yaml/yaml-test-suite/).
+  ```yaml
+  hello:
+    world: this is a string
+      --- still a string
+  ```
+
+* **Accurate error reporting**
+  Mismatched brackets and quotes now report the position of the opening token instead of the end of file.
+
+* **Unicode surrogate pair validation**
+
+    * Proper handling of `\uXXXX` surrogate pairs
+    * Invalid or unpaired surrogates are rejected during scanning
+
+---
+
+### Performance improvements
+
+* **Zero-copy parsing for `&str` input**
+
+  Uses `Cow<'input, str>` to avoid unnecessary allocations when parsing from in-memory strings.
+
+---
+
+### Internal extensions
+
+* **Parser stack support**
+
+  Enables features such as `!include` by exposing additional internal capabilities.
+
+---
+
+### Security
+
+This crate includes fixes to improve resilience against:
+
+* denial-of-service inputs
+* parser hangs
+* panic conditions
+
+Like the upstream parser, it does **not** interpret application-level types, so parsing YAML does not trigger external side effects.
+
+---
 
 ## License
 
-Licensed under either of
+Licensed under either:
 
- * Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license (http://opensource.org/licenses/MIT)
+* Apache License, Version 2.0
+* MIT license
 
-at your option.
+At your option.
 
-Since this repository was originally maintained by
-[chyh1990](https://github.com/chyh1990), there are 2 sets of licenses.
-A license of each set must be included in redistributions. See the
-[LICENSE](LICENSE) file for more details.
-
-You can find licences in the [`.licenses`](.licenses) subfolder.
-
-## Contribution
-
-Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in the work by you, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions. 
-
-Do not forget pull requests are expected against dev/saphyr-parser, not master. 
-
-## Links
-
-* [saphyr-parser source code repository](https://github.com/saphyr-rs/saphyr-parser)
-
-* [saphyr-parser releases on crates.io](https://crates.io/crates/saphyr-parser)
-
-* [saphyr-parser documentation on docs.rs](https://docs.rs/saphyr-parser/latest/saphyr-parser/)
-
-* [yaml-test-suite](https://github.com/yaml/yaml-test-suite)
+This project inherits licensing terms from its upstream origins. See the `LICENSE` file and `.licenses/` directory for details.
