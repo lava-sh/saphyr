@@ -27,6 +27,7 @@ items: !shopping
 locations: # Example with composite keys
   [47.3769, 8.5417]: local
   [40.7128, -74.0060]: remote
+music: "\uD834\uDD1E\uD83C\uDFB5\uD83C\uDFB6" # JSON-style \uXXXX surrogate pairs
 "#;
 
     for next in Parser::new_from_str(yaml) {
@@ -75,6 +76,8 @@ Scalar("-74.0060", Plain, 0, None)
 SequenceEnd
 Scalar("remote", Plain, 0, None)
 MappingEnd
+Scalar("music", Plain, 0, None)
+Scalar("𝄞🎵🎶", DoubleQuoted, 0, None)
 MappingEnd
 DocumentEnd
 StreamEnd
@@ -106,7 +109,6 @@ All changes are intentionally scoped around correctness, compliance, and interop
 
   Previously reported as errors; now handled according to the YAML specification.
 
----
 
 ### Compatibility adjustment
 
@@ -120,12 +122,17 @@ All changes are intentionally scoped around correctness, compliance, and interop
 
   While not strictly YAML-compliant, this form is accepted for compatibility with other parsers and real-world inputs.
 
----
+
+### JSON-style Unicode surrogate pairs
+This parser supports explicit handling for JSON-style Unicode surrogate pairs in quoted scalar escape sequences.
+* `\uXXXX` escapes that encode a high surrogate are now required to be followed immediately by a valid low surrogate escape, and both escapes are combined into the corresponding Unicode scalar value.
+* Unpaired high surrogates, unpaired low surrogates, and reversed surrogate pairs are now rejected during scanning instead of being treated as generic invalid Unicode escape codes.
 
 ### Parsing correctness improvements
 
 * **Plain scalar continuation fixed**
-  Supports cases like:
+
+ Supports cases like:
 
   ```yaml
   hello:
@@ -133,15 +140,10 @@ All changes are intentionally scoped around correctness, compliance, and interop
       --- still a string
   ```
 
-* **Accurate error reporting**
+* **More helpful error reporting**
+ 
   Mismatched brackets and quotes now report the position of the opening token instead of the end of file.
 
-* **Unicode surrogate pair validation**
-
-    * Proper handling of `\uXXXX` surrogate pairs
-    * Invalid or unpaired surrogates are rejected during scanning
-
----
 
 ### Performance improvements
 
@@ -149,7 +151,6 @@ All changes are intentionally scoped around correctness, compliance, and interop
 
   Uses `Cow<'input, str>` to avoid unnecessary allocations when parsing from in-memory strings.
 
----
 
 ### Internal extensions
 
@@ -157,7 +158,6 @@ All changes are intentionally scoped around correctness, compliance, and interop
 
   Enables features such as `!include` by exposing additional internal capabilities.
 
----
 
 ### Security
 
@@ -169,7 +169,6 @@ This crate includes fixes to improve resilience against:
 
 Like the upstream parser, it does **not** interpret application-level types, so parsing YAML does not trigger external side effects.
 
----
 
 ## License
 
