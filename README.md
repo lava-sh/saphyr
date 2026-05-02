@@ -3,7 +3,7 @@
 `saphyr-parser-bw` (indernal crate under `parser` folder) was a short-lived fork of `saphyr-parser`. The name was
 confusingly close to the upstream crate and was never intended to be a permanent package name.
 
-The parser is actively developed and maintained under the new name [[granit-parser]] (https://github.com/bourumir-wyngs/granit-parser) name
+The parser is actively developed and maintained under the new name [granit-parser] (https://github.com/bourumir-wyngs/granit-parser) name
 
 Please migrate to:
 
