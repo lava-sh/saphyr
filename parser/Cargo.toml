@@ -11,14 +11,15 @@ authors = [
   "Bourumir Wyngs <bourumir-wyngs@gmail.com>"
 ]
 categories = { workspace = true }
-description = "Saphyr-parser with changes from Bourumir Wyngs to be used in serde-saphyr"
+description = "Saphyr-parser with changes from Bourumir Wyngs to be used in serde-saphyr. Do not use this crate, use granit-parser"
 documentation = "https://docs.rs/saphyr-parser-bw/latest/saphyr_parser_bw"
 edition = { workspace = true }
 keywords = { workspace = true }
 license = { workspace = true }
+
+# Linking the new granit-parser repository
 repository = "https://github.com/bourumir-wyngs/granit-parser"
 
-# !!!important!!! branch = "dev/saphyr-parser", subdir = "parser". Master branch is just in sync with "https://github.com/saphyr-rs/saphyr"
 rust-version = { workspace = true }
 version = "0.0.612" # 0.0.6 + path. Keeping 0.0.6 as basic compatibility.
 exclude = [

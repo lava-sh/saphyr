@@ -21,6 +21,8 @@ saphyr-parser-bw = { package = "granit-parser", version = "0.0.1" }
 
 This is intended as a short-term migration aid.
 
-`granit-parser 0.0.1` is API compatible with the last release of saphyr-parser-bw, 0.0.612
+`granit-parser 0.0.1` is API compatible with the last release of saphyr-parser-bw, 0.0.612.
+
+If you would encounter any issues, please report them on the [granit-parser issue tracker](https://github.com/bourumir-wyngs/granit-parser/issues). If they still apply to ```granit-parser``` as well, we will work on them.
 
 As [saphyr](https://github.com/saphyr-rs/saphyr) is a monoprepo, the whole code of ```saphyr``` was forked. No development was ever done on parts outside the parser.
