@@ -1,17 +1,26 @@
-[![unsafe forbidden](https://img.shields.io/badge/unsafe-forbidden-success.svg)](https://github.com/rust-secure-code/safety-dance/)
-[![CI](https://github.com/bourumir-wyngs/saphyr/actions/workflows/ci.yml/badge.svg)](https://github.com/bourumir-wyngs/saphyr/actions/workflows/ci.yml)
-[![Miri](https://github.com/bourumir-wyngs/saphyr/actions/workflows/miri.yml/badge.svg)](https://github.com/bourumir-wyngs/saphyr/actions/workflows/miri.yml)
-[![Dependency Vulnerabilities](https://img.shields.io/endpoint?url=https%3A%2F%2Fapi-hooks.soos.io%2Fapi%2Fshieldsio-badges%3FbadgeType%3DDependencyVulnerabilities%26pid%3Dlw1ak1eza%26)](https://app.soos.io)
+# This crate contained the fork of saphyr-parser intended to work with serde-saphyr
 
-# This crate contains the fork of saphyr-parser intended to work with serde-saphyr
-The crate is otherwise identical to the upstream crate [saphyr](https://crates.io/crates/saphyr). If you want
-to use it directly, please refer to the documentation there. 
+`saphyr-parser-bw` (indernal crate under `parser` folder) was a short-lived fork of `saphyr-parser`. The name was
+confusingly close to the upstream crate and was never intended to be a permanent package name.
 
-The main branch in this project is dev/saphyr-parser, not main. Main is kept untouched to make easier
-to pull changes from and raise patches against an original saphyr project.
+The parser is actively developed and maintained under the new name [[granit-parser]] (https://github.com/bourumir-wyngs/granit-parser) name
 
-The parser crate contains many changes. Please refer to [parser/README.md](parser/README.md) for details.
+Please migrate to:
 
-### Other links
-* [yaml-test-suite](https://github.com/yaml/yaml-test-suite)
-* [YAML 1.2 specification](https://yaml.org/spec/1.2.2/)
+```toml
+[dependencies]
+granit-parser = "X.Y.Z"
+```
+
+If you want to test compatibility without changing your code, you can temporarily keep the old crate name and redirect it in Cargo.toml:
+
+```toml
+[dependencies]
+saphyr-parser-bw = { package = "granit-parser", version = "0.0.1" }
+```
+
+This is intended as a short-term migration aid.
+
+`granit-parser 0.0.1` is API compatible with the last release of saphyr-parser-bw, 0.0.612
+
+As [saphyr](https://github.com/saphyr-rs/saphyr) is a monoprepo, the whole code of ```saphyr``` was forked. No development was ever done on parts outside the parser.
