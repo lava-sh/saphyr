@@ -116,15 +116,15 @@
 //!
 //! This feature is _not_ `no_std` compatible.
 //!
-//! [`MarkedYaml`]: crate::MarkedYaml
-//! [`MarkedYamlOwned`]: crate::MarkedYamlOwned
-//! [`Marker`]: crate::Marker
-//! [`YamlData`]: crate::YamlData
-//! [`YamlDataOwned`]: crate::YamlDataOwned
+//! [`MarkedYaml`]: MarkedYaml
+//! [`MarkedYamlOwned`]: MarkedYamlOwned
+//! [`Marker`]: Marker
+//! [`YamlData`]: YamlData
+//! [`YamlDataOwned`]: YamlDataOwned
 //! [`BadValue`]: Yaml::BadValue
 //! [`Representation`]: Yaml::Representation
 //! [`Tagged`]: Yaml::Tagged
-//! [`early_parse`]: crate::YamlLoader::early_parse
+//! [`early_parse`]: YamlLoader::early_parse
 
 #![warn(missing_docs, clippy::pedantic)]
 #![no_std]

@@ -93,7 +93,7 @@ pub enum Yaml<'input> {
     /// A tagged node.
     ///
     /// Tags can be applied to any node, whether a scalar or a collection.
-    Tagged(Cow<'input, Tag>, Box<Yaml<'input>>),
+    Tagged(Cow<'input, Tag>, Box<Self>),
     /// Alias, not fully supported yet.
     Alias(usize),
     /// A variant used when parsing the representation of a scalar node fails.
@@ -161,7 +161,7 @@ impl Yaml<'_> {
 impl<'input> LoadableYamlNode<'input> for Yaml<'input> {
     type HashKey = Self;
 
-    fn from_bare_yaml(yaml: Yaml<'input>) -> Self {
+    fn from_bare_yaml(yaml: Self) -> Self {
         yaml
     }
 
@@ -218,7 +218,7 @@ impl<'input> LoadableYamlNode<'input> for Yaml<'input> {
 }
 
 impl<'input> IntoIterator for Yaml<'input> {
-    type Item = Yaml<'input>;
+    type Item = Self;
     type IntoIter = YamlIter<'input>;
 
     fn into_iter(self) -> Self::IntoIter {

@@ -76,8 +76,8 @@ pub struct YamlDecoder<T: std::io::Read> {
 
 impl<T: std::io::Read> YamlDecoder<T> {
     /// Create a `YamlDecoder` decoding the given source.
-    pub fn read(source: T) -> YamlDecoder<T> {
-        YamlDecoder {
+    pub fn read(source: T) -> Self {
+        Self {
             source,
             trap: YAMLDecodingTrap::Strict,
         }

@@ -28,7 +28,7 @@ pub struct MarkedYaml<'input> {
     /// to the start of the document within the input stream.
     pub span: Span,
     /// The YAML contents of the node.
-    pub data: YamlData<'input, MarkedYaml<'input>>,
+    pub data: YamlData<'input, Self>,
 }
 
 impl<'input> MarkedYaml<'input> {
@@ -99,8 +99,8 @@ impl super::AnnotatedNode for MarkedYaml<'_> {
     }
 }
 
-impl<'a> From<YamlData<'a, MarkedYaml<'a>>> for MarkedYaml<'a> {
-    fn from(value: YamlData<'a, MarkedYaml<'a>>) -> Self {
+impl<'a> From<YamlData<'a, Self>> for MarkedYaml<'a> {
+    fn from(value: YamlData<'a, Self>) -> Self {
         Self {
             span: Span::default(),
             data: value,
@@ -142,7 +142,7 @@ impl SafelyIndexMut for MarkedYaml<'_> {
 }
 
 impl<'input> LoadableYamlNode<'input> for MarkedYaml<'input> {
-    type HashKey = MarkedYaml<'input>;
+    type HashKey = Self;
 
     fn from_bare_yaml(yaml: Yaml<'input>) -> Self {
         Self {

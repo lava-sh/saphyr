@@ -33,7 +33,7 @@ pub struct MarkedYamlOwned {
     /// to the start of the document within the input stream.
     pub span: Span,
     /// The YAML contents of the node.
-    pub data: YamlDataOwned<MarkedYamlOwned>,
+    pub data: YamlDataOwned<Self>,
 }
 
 impl MarkedYamlOwned {
@@ -103,15 +103,15 @@ impl MarkedYamlOwned {
 }
 
 impl super::AnnotatedNodeOwned for MarkedYamlOwned {
-    type HashKey = MarkedYamlOwned;
+    type HashKey = Self;
 
     fn parse_representation_recursive(&mut self) -> bool {
         self.data.parse_representation_recursive()
     }
 }
 
-impl From<YamlDataOwned<MarkedYamlOwned>> for MarkedYamlOwned {
-    fn from(value: YamlDataOwned<MarkedYamlOwned>) -> Self {
+impl From<YamlDataOwned<Self>> for MarkedYamlOwned {
+    fn from(value: YamlDataOwned<Self>) -> Self {
         Self {
             span: Span::default(),
             data: value,
@@ -119,8 +119,8 @@ impl From<YamlDataOwned<MarkedYamlOwned>> for MarkedYamlOwned {
     }
 }
 
-impl PartialEq<MarkedYamlOwned> for MarkedYamlOwned {
-    fn eq(&self, other: &MarkedYamlOwned) -> bool {
+impl PartialEq<Self> for MarkedYamlOwned {
+    fn eq(&self, other: &Self) -> bool {
         self.data.eq(&other.data)
     }
 }
@@ -153,7 +153,7 @@ impl SafelyIndexMut for MarkedYamlOwned {
 }
 
 impl LoadableYamlNode<'_> for MarkedYamlOwned {
-    type HashKey = MarkedYamlOwned;
+    type HashKey = Self;
 
     fn from_bare_yaml(yaml: Yaml) -> Self {
         Self {
@@ -207,7 +207,7 @@ impl LoadableYamlNode<'_> for MarkedYamlOwned {
     }
 
     fn take(&mut self) -> Self {
-        let mut taken_out = MarkedYamlOwned {
+        let mut taken_out = Self {
             span: Span::default(),
             data: YamlDataOwned::BadValue,
         };

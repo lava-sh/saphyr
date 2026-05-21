@@ -412,6 +412,6 @@ pub enum LoadError {
 #[cfg(feature = "encoding")]
 impl From<std::io::Error> for LoadError {
     fn from(error: std::io::Error) -> Self {
-        LoadError::IO(Arc::new(error))
+        Self::IO(Arc::new(error))
     }
 }

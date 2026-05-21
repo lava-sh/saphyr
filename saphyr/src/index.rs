@@ -48,19 +48,19 @@ pub enum Accessor {
 
 impl From<usize> for Accessor {
     fn from(val: usize) -> Self {
-        Accessor::Index(val)
+        Self::Index(val)
     }
 }
 
 impl From<String> for Accessor {
     fn from(val: String) -> Self {
-        Accessor::Field(val)
+        Self::Field(val)
     }
 }
 
 impl From<&str> for Accessor {
     fn from(val: &str) -> Self {
-        Accessor::Field(val.to_string())
+        Self::Field(val.to_string())
     }
 }
 
