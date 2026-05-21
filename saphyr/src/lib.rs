@@ -116,15 +116,15 @@
 //!
 //! This feature is _not_ `no_std` compatible.
 //!
-//! [`MarkedYaml`]: crate::MarkedYaml
-//! [`MarkedYamlOwned`]: crate::MarkedYamlOwned
-//! [`Marker`]: crate::Marker
-//! [`YamlData`]: crate::YamlData
-//! [`YamlDataOwned`]: crate::YamlDataOwned
+//! [`MarkedYaml`]: MarkedYaml
+//! [`MarkedYamlOwned`]: MarkedYamlOwned
+//! [`Marker`]: Marker
+//! [`YamlData`]: YamlData
+//! [`YamlDataOwned`]: YamlDataOwned
 //! [`BadValue`]: Yaml::BadValue
 //! [`Representation`]: Yaml::Representation
 //! [`Tagged`]: Yaml::Tagged
-//! [`early_parse`]: crate::YamlLoader::early_parse
+//! [`early_parse`]: YamlLoader::early_parse
 
 #![warn(missing_docs, clippy::pedantic)]
 #![no_std]
@@ -147,27 +147,29 @@ mod yaml;
 mod yaml_owned;
 
 // Re-export main components.
-pub use crate::annotated::{
-    marked_yaml::MarkedYaml, marked_yaml_owned::MarkedYamlOwned, AnnotatedMapping,
-    AnnotatedMappingOwned, AnnotatedNode, AnnotatedNodeOwned, AnnotatedSequence,
-    AnnotatedSequenceOwned, AnnotatedYamlIter, YamlData, YamlDataOwned,
+pub use crate::{
+    annotated::{
+        marked_yaml::MarkedYaml, marked_yaml_owned::MarkedYamlOwned, AnnotatedMapping,
+        AnnotatedMappingOwned, AnnotatedNode, AnnotatedNodeOwned, AnnotatedSequence,
+        AnnotatedSequenceOwned, AnnotatedYamlIter, YamlData, YamlDataOwned,
+    },
+    emitter::{EmitError, YamlEmitter},
+    index::{Accessor, SafelyIndex, SafelyIndexMut},
+    loader::{LoadError, LoadableYamlNode, YamlLoader},
+    scalar::{parse_core_schema_fp, Scalar, ScalarOwned},
+    yaml::{Mapping, Sequence, Yaml, YamlIter},
+    yaml_owned::{MappingOwned, SequenceOwned, YamlOwned, YamlOwnedIter},
 };
-pub use crate::emitter::{EmitError, YamlEmitter};
-pub use crate::index::{Accessor, SafelyIndex, SafelyIndexMut};
-pub use crate::loader::{LoadError, LoadableYamlNode, YamlLoader};
-pub use crate::scalar::{parse_core_schema_fp, Scalar, ScalarOwned};
-pub use crate::yaml::{Mapping, Sequence, Yaml, YamlIter};
-pub use crate::yaml_owned::{MappingOwned, SequenceOwned, YamlOwned, YamlOwnedIter};
 
 #[cfg(feature = "encoding")]
 mod encoding;
-#[cfg(feature = "encoding")]
-pub use crate::encoding::{YAMLDecodingTrap, YAMLDecodingTrapFn, YamlDecoder};
-
+// Re-export `Marker` which is used for annotated YAMLs.
+pub use saphyr_parser::Marker;
 // Re-export `ScanError` as it is used as part of our public API and we want consumers to be able
 // to inspect it (e.g. perform a `match`). They wouldn't be able without it.
 pub use saphyr_parser::ScanError;
-// Re-export `Marker` which is used for annotated YAMLs.
-pub use saphyr_parser::Marker;
 // Re-export `ScalarStyle` and `Tag` which are used for representations.
 pub use saphyr_parser::{ScalarStyle, Tag};
+
+#[cfg(feature = "encoding")]
+pub use crate::encoding::{YAMLDecodingTrap, YAMLDecodingTrapFn, YamlDecoder};

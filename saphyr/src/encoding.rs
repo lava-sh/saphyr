@@ -76,8 +76,8 @@ pub struct YamlDecoder<T: std::io::Read> {
 
 impl<T: std::io::Read> YamlDecoder<T> {
     /// Create a `YamlDecoder` decoding the given source.
-    pub fn read(source: T) -> YamlDecoder<T> {
-        YamlDecoder {
+    pub fn read(source: T) -> Self {
+        Self {
             source,
             trap: YAMLDecodingTrap::Strict,
         }
@@ -202,9 +202,8 @@ fn detect_utf16_endianness(b: &[u8]) -> &'static Encoding {
 
 #[cfg(test)]
 mod test {
-    use crate::Scalar;
-
     use super::{YAMLDecodingTrap, Yaml, YamlDecoder};
+    use crate::Scalar;
 
     #[test]
     fn test_read_bom() {

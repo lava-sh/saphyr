@@ -3,8 +3,6 @@ lto = true
 
 [workspace]
 members = [
-    "parser",
-    "parser/tools/walk",
     "saphyr",
     "bench",
     "bench/tools/gen_large_yaml",
@@ -36,10 +34,10 @@ encoding_rs = { version = "0.8.35" }
 # Keep in sync with hashlink to reduce dependency duplication
 hashbrown = { version = "0.17", default-features = false, features = ["default-hasher"] }
 hashlink = "0.11"
-libtest-mimic = "0.8.1"
-miette = { version = "7.5.0", features = ["fancy"] }
-ordered-float = { version = "5.1", default-features = false }
-quickcheck = "1.0"
+libtest-mimic = "0.8.2"
+miette = { version = "7.6.0", features = ["fancy"] }
+ordered-float = { version = "5.3", default-features = false }
+quickcheck = "1.1"
 rustyline = "18.0.0"
 saphyr = { path = "saphyr" }
 saphyr-bench = { path = "bench" }
@@ -53,3 +51,19 @@ git = "https://github.com/bourumir-wyngs/granit-parser"
 [workspace.lints.rust]
 unsafe_code = "forbid"
 unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+perf = { level = "deny", priority = 1 }
+style = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+complexity = { level = "deny", priority = -1 }
+suspicious = { level = "deny", priority = -1 }
+
+too_many_lines = "allow"
+manual_let_else = "allow"
+cast_possible_truncation = "allow"
+option_if_let_else = "allow"
+missing_const_for_fn = "allow"
+doc_link_code = "allow"
+

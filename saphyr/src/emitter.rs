@@ -275,21 +275,48 @@ impl<'a> YamlEmitter<'a> {
     }
 
     fn emit_literal_block(&mut self, v: &str) -> EmitResult {
-        let ends_with_newline = v.ends_with('\n');
-        if ends_with_newline {
-            self.writer.write_str("|")?;
-        } else {
-            self.writer.write_str("|-")?;
+        let content = v.trim_end_matches('\n');
+        let trailing_nl = v.len() - content.len();
+
+        let needs_indicator = char_traits::first_line_leading_spaces(content) > 0;
+
+        if needs_indicator && self.best_indent > 9 {
+            escape_str(self.writer, v)?;
+            return Ok(());
+        }
+
+        self.writer.write_str("|")?;
+        if needs_indicator {
+            write!(self.writer, "{}", self.best_indent)?;
+        }
+        match trailing_nl {
+            0 => self.writer.write_char('-')?,
+            1 => {} // clip is the default
+            _ => self.writer.write_char('+')?,
         }
 
         self.level += 1;
-        // lines() will omit the last line if it is empty.
-        for line in v.lines() {
-            writeln!(self.writer)?;
-            self.write_indent()?;
-            // It's literal text, so don't escape special chars.
-            self.writer.write_str(line)?;
+
+        if content.is_empty() {
+            if trailing_nl >= 1 {
+                writeln!(self.writer)?;
+                self.write_indent()?;
+            }
+        } else {
+            for line in content.split('\n') {
+                writeln!(self.writer)?;
+                self.write_indent()?;
+                self.writer.write_str(line)?;
+            }
         }
+
+        if trailing_nl >= 2 {
+            for _ in 0..(trailing_nl - 1) {
+                writeln!(self.writer)?;
+                self.write_indent()?;
+            }
+        }
+
         self.level -= 1;
         Ok(())
     }
@@ -384,7 +411,10 @@ impl<'a> YamlEmitter<'a> {
     /// [`multiline_strings`]: Self::multiline_strings.
     #[must_use]
     fn should_emit_string_as_block(&self, s: &str) -> bool {
-        self.multiline_strings && s.contains('\n') && char_traits::is_valid_literal_block_scalar(s)
+        self.multiline_strings
+            && s.contains('\n')
+            && !s.ends_with('\n')
+            && char_traits::is_valid_literal_block_scalar(s)
     }
 }
 

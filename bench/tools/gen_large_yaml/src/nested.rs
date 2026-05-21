@@ -33,14 +33,14 @@ struct Tree {
 /// A node in a tree.
 struct Node {
     /// All the children of the node.
-    children: Vec<Rc<RefCell<Node>>>,
+    children: Vec<Rc<RefCell<Self>>>,
 }
 
 impl Tree {
     /// Create a new tree.
     fn new() -> Self {
         let root = Node::new_rc_refcell();
-        Tree {
+        Self {
             root: root.clone(),
             nodes: vec![root],
             rng: SmallRng::seed_from_u64(42),
@@ -66,7 +66,7 @@ impl Tree {
 impl Node {
     /// Create a new node.
     fn new() -> Self {
-        Node { children: vec![] }
+        Self { children: vec![] }
     }
 
     fn new_rc_refcell() -> Rc<RefCell<Self>> {

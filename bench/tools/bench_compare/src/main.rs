@@ -1,4 +1,8 @@
-use std::{fs::File, io::BufWriter, io::Write, path::Path};
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    path::Path,
+};
 
 use anyhow::Error;
 use serde::{Deserialize, Serialize};
@@ -145,7 +149,7 @@ fn save_run_bench_csv(
 ) -> Result<(), Error> {
     let mut csv = BufWriter::new(File::create(&config.csv_output)?);
     for parser in &config.parsers {
-        write!(csv, ",{}", parser.name,)?;
+        write!(csv, ",{}", parser.name)?;
     }
     writeln!(csv)?;
     for (path, averages) in inputs.iter().zip(averages.iter()) {

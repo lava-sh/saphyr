@@ -12,13 +12,13 @@ readme = { workspace = true }
 repository = { workspace = true }
 rust-version = { workspace = true }
 exclude = [
-  # We don't need the documents.
-  "/documents",
+    # We don't need the documents.
+    "/documents",
 ]
 
 [features]
-default = [ "encoding" ]
-encoding = [ "dep:encoding_rs" ]
+default = ["encoding"]
+encoding = ["dep:encoding_rs"]
 
 [dependencies]
 encoding_rs = { workspace = true, optional = true }
