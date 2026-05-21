@@ -1,4 +1,8 @@
-use std::{fs::File, io::BufWriter, io::Write, path::Path};
+use std::{
+    fs::File,
+    io::{BufWriter, Write},
+    path::Path,
+};
 
 use anyhow::Error;
 use serde::{Deserialize, Serialize};

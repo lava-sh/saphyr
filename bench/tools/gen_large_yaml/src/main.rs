@@ -3,9 +3,7 @@
 mod gen;
 mod nested;
 
-use std::fs::File;
-use std::io::BufWriter;
-use std::path::Path;
+use std::{fs::File, io::BufWriter, path::Path};
 
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 

@@ -127,6 +127,7 @@ where
         match self.as_mapping_mut() {
             Some(mapping) => {
                 use core::hash::Hash;
+
                 use hashlink::linked_hash_map::RawEntryMut::{Occupied, Vacant};
 
                 // In order to work around `needle`'s lifetime being different from `h`'s, we need

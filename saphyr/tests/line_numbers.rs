@@ -1,5 +1,4 @@
-use saphyr::LoadableYamlNode;
-use saphyr::MarkedYamlOwned;
+use saphyr::{LoadableYamlNode, MarkedYamlOwned};
 
 #[test]
 fn example_for_line_numers() {

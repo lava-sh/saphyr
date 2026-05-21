@@ -202,9 +202,8 @@ fn detect_utf16_endianness(b: &[u8]) -> &'static Encoding {
 
 #[cfg(test)]
 mod test {
-    use crate::Scalar;
-
     use super::{YAMLDecodingTrap, Yaml, YamlDecoder};
+    use crate::Scalar;
 
     #[test]
     fn test_read_bom() {

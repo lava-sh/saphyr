@@ -1,7 +1,6 @@
+use std::{env, fs::File, io::prelude::*};
+
 use saphyr::{LoadableYamlNode, Yaml};
-use std::env;
-use std::fs::File;
-use std::io::prelude::*;
 
 fn print_indent(indent: usize) {
     for _ in 0..indent {

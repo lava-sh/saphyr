@@ -1,5 +1,7 @@
 //! The default loader.
 
+#[cfg(feature = "encoding")]
+use alloc::sync::Arc;
 use alloc::{borrow::Cow, collections::BTreeMap, vec::Vec};
 use core::marker::PhantomData;
 
@@ -10,9 +12,6 @@ use saphyr_parser::{
 use thiserror::Error;
 
 use crate::{Mapping, Yaml};
-
-#[cfg(feature = "encoding")]
-use alloc::sync::Arc;
 
 /// Main structure for parsing YAML.
 ///

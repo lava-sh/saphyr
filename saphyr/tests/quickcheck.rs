@@ -2,7 +2,6 @@
 extern crate quickcheck;
 
 use quickcheck::TestResult;
-
 use saphyr::{LoadableYamlNode, Scalar, Yaml, YamlEmitter};
 
 quickcheck! {
