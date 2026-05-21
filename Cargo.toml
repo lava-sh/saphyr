@@ -28,23 +28,27 @@ description = "A fully YAML 1.2 compliant YAML library"
 repository = "https://github.com/saphyr-rs/saphyr"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.81.0" # parser implements core::error::Error in no_std
+rust-version = "1.95.0" # parser implements core::error::Error in no_std
 
 [workspace.dependencies]
 arraydeque = { version = "0.5.1", default-features = false }
 encoding_rs = { version = "0.8.35" }
 # Keep in sync with hashlink to reduce dependency duplication
-hashbrown = { version = "0.16", default-features = false, features = ["default-hasher"] }
+hashbrown = { version = "0.17", default-features = false, features = ["default-hasher"] }
 hashlink = "0.11"
 libtest-mimic = "0.8.1"
 miette = { version = "7.5.0", features = ["fancy"] }
 ordered-float = { version = "5.1", default-features = false }
 quickcheck = "1.0"
-rustyline = "17.0.2"
+rustyline = "18.0.0"
 saphyr = { path = "saphyr" }
 saphyr-bench = { path = "bench" }
-saphyr-parser = { path = "parser", package = "saphyr-parser-bw" }
 thiserror = { version = ">= 2.0.15, <= 2.0.18", default-features = false }
+
+[workspace.dependencies.saphyr-parser]
+package = "granit-parser"
+rev = "e10ee63e049c2fff7390d5640c690e95c8d216a1"
+git = "https://github.com/bourumir-wyngs/granit-parser"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
